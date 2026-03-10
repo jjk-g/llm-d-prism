@@ -1,25 +1,28 @@
-# Multi-stage build for {{PROJECT_NAME}}
-# Supports multi-arch: linux/amd64, linux/arm64
+# Build stage
+FROM node:20-alpine as build
 
-# --- Build stage ---
-FROM golang:1.26 AS builder
+WORKDIR /app
 
-WORKDIR /workspace
+COPY package*.json ./
+RUN npm install
 
-# Cache dependencies
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy source and build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /workspace/app .
+RUN npm run build
 
-# --- Runtime stage ---
-FROM gcr.io/distroless/static:nonroot
+# Serve stage
+FROM node:20-alpine
 
-WORKDIR /
-COPY --from=builder /workspace/app .
+WORKDIR /app
 
-USER 65532:65532
+# Install production dependencies for server
+COPY package*.json ./
+RUN npm install --omit=dev
 
-ENTRYPOINT ["/app"]
+# Copy server and built assets
+COPY server ./server
+COPY --from=build /app/dist ./dist
+
+ENV PORT=8080
+EXPOSE 8080
+
+CMD ["npm", "start"]

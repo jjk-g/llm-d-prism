@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+.git/
+.gitignore
+private/
+dist/
+*.local
+.env.local
+.env
