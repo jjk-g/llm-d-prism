@@ -4,8 +4,6 @@
 
 > Performance analysis for distributed inference systems
 
-_Note: The contents of this repo are currently being populated from the original Prism repo. We expect this to be completed by the end of March 2026._
-
 ## Overview
 
 AI Platform Engineers and ML Engineers face significant challenges assembling the full end-to-end inference serving stack for their applications, leading to lengthy, manual evaluation cycles, suboptimal performance, and unnecessarily high friction and costs. While many benchmarks and tools exist, the data is often scattered across disconnected docs, spreadsheets, or vendor-specific sites.
