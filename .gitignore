@@ -33,3 +33,4 @@ Thumbs.db
 .envrc
 .secrets.env
 vendor/
+node_modules
