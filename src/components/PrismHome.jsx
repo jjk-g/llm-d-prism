@@ -17,7 +17,7 @@ const PrismHome = ({ onNavigate }) => {
                     <div className="flex items-center justify-center mb-6 space-x-3">
                         <Activity className="h-14 w-14 text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
                         <h1 className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
-                            Prism inference
+                            Prism
                         </h1>
                     </div>
                     <p className="text-xl text-slate-400 max-w-3xl leading-relaxed font-light tracking-wide">
@@ -34,20 +34,6 @@ const PrismHome = ({ onNavigate }) => {
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                          <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
                              <div className="flex items-center mb-4">
-                                 <Server className="h-6 w-6 text-blue-500 mr-2" />
-                                 <h3 className="text-xl font-semibold text-slate-100">Stack operators</h3>
-                             </div>
-                             <p className="text-sm text-slate-400 mb-6 flex-1">
-                                Priorities production stability, regression tracking, and well-lit infra runs.
-                             </p>
-                             <ul className="text-sm space-y-3 text-slate-300">
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Compare deployments vs. historical baselines</li>
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Execute regular stress telemetry tests</li>
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reduce wasted GPU spend footprints</li>
-                             </ul>
-                         </div>
-                         <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
-                             <div className="flex items-center mb-4">
                                  <TrendingUp className="h-6 w-6 text-blue-500 mr-2" />
                                  <h3 className="text-xl font-semibold text-slate-100">Feature developers</h3>
                              </div>
@@ -58,6 +44,20 @@ const PrismHome = ({ onNavigate }) => {
                                 <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Automate pricing vs. performance goals</li>
                                 <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Distinct unit vs. system benchmark suites</li>
                                 <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reproducible shareable benchmark run sets</li>
+                             </ul>
+                         </div>
+                         <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
+                             <div className="flex items-center mb-4">
+                                 <Server className="h-6 w-6 text-blue-500 mr-2" />
+                                 <h3 className="text-xl font-semibold text-slate-100">Stack operators</h3>
+                             </div>
+                             <p className="text-sm text-slate-400 mb-6 flex-1">
+                                Priorities production stability, regression tracking, and well-lit infra runs.
+                             </p>
+                             <ul className="text-sm space-y-3 text-slate-300">
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Compare deployments vs. historical baselines</li>
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Execute regular stress telemetry tests</li>
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reduce wasted GPU spend footprints</li>
                              </ul>
                          </div>
                      </div>
@@ -149,8 +149,8 @@ const PrismHome = ({ onNavigate }) => {
                                 </div>
                             </div>
 
-                            <button className="w-full py-2.5 bg-slate-800 text-slate-300 rounded-lg font-medium text-sm flex items-center justify-center hover:bg-slate-700 transition-colors group-hover:bg-purple-500/20 group-hover:text-purple-400 border border-slate-700">
-                                Explore Path
+                            <button className="w-full py-2.5 bg-slate-800/50 text-slate-400 rounded-lg font-medium text-sm flex items-center justify-center border border-slate-700/50 cursor-not-allowed">
+                                Coming soon
                             </button>
                         </div>
 
@@ -194,8 +194,8 @@ const PrismHome = ({ onNavigate }) => {
                                 </div>
                             </div>
 
-                            <button className="w-full py-2.5 bg-slate-800 text-slate-300 rounded-lg font-medium text-sm flex items-center justify-center hover:bg-slate-700 transition-colors group-hover:bg-pink-500/20 group-hover:text-pink-400 border border-slate-700">
-                                Explore Path
+                            <button className="w-full py-2.5 bg-slate-800/50 text-slate-400 rounded-lg font-medium text-sm flex items-center justify-center border border-slate-700/50 cursor-not-allowed">
+                                Coming soon
                             </button>
                         </div>
                     </div>
