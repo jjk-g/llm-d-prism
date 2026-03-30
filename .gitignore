@@ -34,3 +34,5 @@ Thumbs.db
 .secrets.env
 vendor/
 node_modules
+
+zipline-upload.zip

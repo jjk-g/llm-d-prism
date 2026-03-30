@@ -15,7 +15,6 @@
 import { useCallback } from 'react';
 import { CacheManager } from '../utils/cacheManager';
 import { parseJsonEntry, parseLogFile } from '../utils/dataParser';
-import { parseReport } from '../utils/gcsScanner';
 
 export const useGCS = ({ pendingRequests, addToast }) => {
     const fetchBucketData = useCallback(async (bucket, forceRefresh = false) => {
@@ -74,19 +73,14 @@ export const useGCS = ({ pendingRequests, addToast }) => {
                         const content = await fileRes.text();
                         let entries = [];
 
-                        if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
-                            const parsed = parseReport(content, file.name);
-                            if (parsed) entries = [parsed];
-                        } else {
-                            try {
-                                const jsonContent = JSON.parse(content);
-                                if (jsonContent.metrics || jsonContent.load_summary) {
-                                    const entry = parseJsonEntry({ ...jsonContent, source: `gcs:${cleanBucketName}` }, file.name);
-                                    entries = [entry];
-                                }
-                            } catch {
-                                // Try parsing as log file
+                        try {
+                            const jsonContent = JSON.parse(content);
+                            if (jsonContent.metrics || jsonContent.load_summary) {
+                                const entry = parseJsonEntry({ ...jsonContent, source: `gcs:${cleanBucketName}` }, file.name);
+                                entries = [entry];
                             }
+                        } catch {
+                            // Try parsing as log file
                         }
                         
                         if (entries.length === 0) {

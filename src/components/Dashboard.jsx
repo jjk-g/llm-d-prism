@@ -20,7 +20,7 @@ import {
     BarChart, Bar, ReferenceDot, Label
 } from 'recharts';
 
-import { Activity, Clock, Zap, AlertCircle, ChevronDown, ChevronUp, FileJson, ExternalLink, Cloud, Loader, Filter, X, Plus, RefreshCw, Database, Check, CheckCircle, RotateCcw, Sun, Moon, Eye, EyeOff, Trash2, Edit2, Share2, MessageCircle, Target } from 'lucide-react';
+import { Activity, Clock, Zap, AlertCircle, ChevronDown, ChevronUp, FileJson, ExternalLink, Cloud, Loader, Filter, X, Plus, RefreshCw, Database, Check, CheckCircle, RotateCcw, Sun, Moon, Eye, EyeOff, Trash2, Edit2, Share2, MessageCircle, Target, ArrowLeft } from 'lucide-react';
 import { parseJsonEntry, parseLogFile, parseGiqData, normalizeModelName, normalizeHardware, parseLpgLifecycleMetrics, parseLpgRequestLog } from '../utils/dataParser';
 import { listFolderRecursive, fetchFileContent, parseDriveMetadata, findFolderByName } from '../utils/googleDrive';
 import { defaultState } from '../config/defaultState';
@@ -70,7 +70,70 @@ const getAcceleratorCount = (d) => {
 
 
 
-const Dashboard = () => {
+const MOCK_FALLBACK_DATA_LEGACY = [
+    {
+        run_id: "Run-1",
+        model: "Llama-3-70B",
+        hardware: "NVIDIA H100",
+        accelerator_count: 8,
+        architecture: "Standard TCP",
+        latency: { mean: 15.2, p50: 14.8, p99: 18.5 },
+        ttft: { mean: 120.5, p50: 118.2 },
+        throughput: 2500,
+        source: "local",
+        backend: "vLLM",
+        isl: 512,
+        osl: 128,
+        timestamp: "2026-03-26T10:00:00Z"
+    },
+    {
+        run_id: "Run-2",
+        model: "Llama-3-70B",
+        hardware: "NVIDIA H100",
+        accelerator_count: 8,
+        architecture: "Standard TCP",
+        latency: { mean: 18.5, p50: 17.2, p99: 22.1 },
+        ttft: { mean: 140.1, p50: 135.5 },
+        throughput: 5000,
+        source: "local",
+        backend: "vLLM",
+        isl: 1024,
+        osl: 128,
+        timestamp: "2026-03-26T10:05:00Z"
+    },
+    {
+        run_id: "Run-3",
+        model: "Gemma-2-27B",
+        hardware: "NVIDIA A100",
+        accelerator_count: 4,
+        architecture: "Low Latency",
+        latency: { mean: 12.1, p50: 11.5, p99: 14.2 },
+        ttft: { mean: 80.2, p50: 78.5 },
+        throughput: 8000,
+        source: "local",
+        backend: "vLLM",
+        isl: 512,
+        osl: 256,
+        timestamp: "2026-03-26T10:10:00Z"
+    },
+    {
+        run_id: "Run-4",
+        model: "Gemma-2-27B",
+        hardware: "NVIDIA A100",
+        accelerator_count: 4,
+        architecture: "Low Latency",
+        latency: { mean: 14.2, p50: 13.8, p99: 16.5 },
+        ttft: { mean: 95.5, p50: 92.1 },
+        throughput: 16000,
+        source: "local",
+        backend: "vLLM",
+        isl: 1024,
+        osl: 256,
+        timestamp: "2026-03-26T10:15:00Z"
+    }
+];
+
+const Dashboard = ({ onNavigateBack }) => {
 
     const dashboardState = useDashboardState();
     const {
@@ -102,7 +165,7 @@ const Dashboard = () => {
 
     const dashboardData = useDashboardData(initialState, dashboardState);
     const {
-        data, setData,
+        data: liveData, setData,
         loading, setLoading,
         isRestoringConnections,
         gcsLoading, setGcsLoading,
@@ -142,6 +205,11 @@ const Dashboard = () => {
         expandedIntegration, setExpandedIntegration,
         awsBucketConfigs, handleAddAWSBucket, removeAWSBucket
     } = dashboardData;
+
+    const data = useMemo(() => {
+        if (!liveData || liveData.length === 0) return MOCK_FALLBACK_DATA_LEGACY.map((d, i) => ({ ...d, id: i }));
+        return liveData;
+    }, [liveData]);
 
     // Shared State Parsing Logic
 
@@ -1145,6 +1213,32 @@ const Dashboard = () => {
     const allModels = [...new Set(filteredBySource.map(d => d.model).filter(m => m !== 'Unknown'))];
     const backends = [...new Set(data.map(d => d.backend).filter(b => b !== 'Unknown'))];
 
+    // Sanitize activeFilters on load to remove stale filters that are not in the dataset
+    useEffect(() => {
+        if (loading || baseData.length === 0) return;
+
+        setActiveFilters(prev => {
+            const next = { ...prev };
+            let changed = false;
+
+            if (prev.models.size > 0 && filterOptions.models.length > 0) {
+                const validModels = new Set();
+                const availableModels = new Set(filterOptions.models);
+                prev.models.forEach(m => {
+                    if (availableModels.has(m)) {
+                        validModels.add(m);
+                    } else {
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    next.models = validModels;
+                }
+            }
+            return changed ? next : prev;
+        });
+    }, [loading, baseData, filterOptions.models]);
+
 
     // Unified Synchronization & Migration Effect
     // 1. Converts legacy/portable wildcards to concrete keys.
@@ -1648,6 +1742,11 @@ const Dashboard = () => {
             </div>
             <header className="sticky top-0 z-50 mb-2 flex justify-between items-center bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors">
                 <div className="flex items-center gap-4">
+                    {onNavigateBack && (
+                        <button onClick={onNavigateBack} className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-900 dark:hover:text-white" title="Go Back to Home">
+                            <ArrowLeft className="h-4 w-4" />
+                        </button>
+                    )}
                     <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-500">
                         Prism
                     </h1>

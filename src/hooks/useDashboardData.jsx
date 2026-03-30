@@ -1266,6 +1266,7 @@ export const useDashboardData = (initialState, dashboardState) => {
 
                 // Merge and recalculate IDs
                 const merged = [...retainedPrev, ...dataWithIds];
+                
                 return merged.map((d, i) => ({ ...d, id: i }));
             });
 
