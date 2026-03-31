@@ -6,7 +6,7 @@ const PrismHome = ({ onNavigate }) => {
         <div className="min-h-screen bg-slate-950 font-sans text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Pulsing Vibrant Neon Glow Background Shapes */}
             <div className="absolute top-0 -left-1/4 w-1/2 h-1/2 bg-blue-600/15 rounded-full blur-3xl pointer-events-none animate-pulse" />
-            <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-fuchsia-600/15 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: '2s' }} />
+            <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-emerald-600/15 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: '2s' }} />
 
             <div className="max-w-6xl w-full z-10 flex flex-col items-center">
                 {/* Hero Header */}
@@ -16,7 +16,7 @@ const PrismHome = ({ onNavigate }) => {
                      </span>
                     <div className="flex items-center justify-center mb-6 space-x-3">
                         <Activity className="h-14 w-14 text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
-                        <h1 className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
+                        <h1 className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600">
                             Prism
                         </h1>
                     </div>
@@ -119,12 +119,12 @@ const PrismHome = ({ onNavigate }) => {
                             onClick={() => onNavigate('pd-disaggregation')}
                             className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-2xl p-8 hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(139,92,246,0.3)] transition-all duration-500 cursor-pointer flex flex-col h-full overflow-hidden"
                         >
-                            <h3 className="text-xl font-bold mb-3 text-white group-hover:text-purple-400 transition-colors">
+                            <h3 className="text-xl font-bold mb-3 text-white group-hover:text-emerald-400 transition-colors">
                                 P/D disaggregation
                             </h3>
                             <div className="flex flex-wrap gap-2 mb-4">
-                                <span className="text-xs px-2.5 py-1 bg-purple-500/10 text-purple-400 rounded-full font-medium border border-purple-500/20">Split scaling</span>
-                                <span className="text-xs px-2.5 py-1 bg-purple-500/10 text-purple-400 rounded-full font-medium border border-purple-500/20">Hardware tuning</span>
+                                <span className="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-medium border border-emerald-500/20">Split scaling</span>
+                                <span className="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-full font-medium border border-emerald-500/20">Hardware tuning</span>
                             </div>
                             <p className="text-slate-400 text-sm mb-6 flex-1">
                                 Split prompt (prefill) and decode workloads across specialized hardware nodes. Optimize idle metrics.
@@ -135,17 +135,17 @@ const PrismHome = ({ onNavigate }) => {
                                 <div className="space-y-2 mb-3">
                                     <div className="flex justify-between text-xs">
                                         <span className="text-slate-400">Target scale split</span>
-                                        <span className="text-purple-400 font-mono font-bold">P-H100 : D-L4</span>
+                                        <span className="text-emerald-400 font-mono font-bold">P-H100 : D-L4</span>
                                     </div>
                                     <div className="flex justify-between text-xs">
                                         <span className="text-slate-400">Idle GPU saver</span>
-                                        <span className="text-purple-400 font-mono font-bold">Up to 30%</span>
+                                        <span className="text-emerald-400 font-mono font-bold">Up to 30%</span>
                                     </div>
                                 </div>
                                 <div className="flex justify-center space-x-2">
-                                     <div className="w-12 h-10 bg-purple-500/20 rounded border border-purple-500/50 flex items-center justify-center text-xs text-purple-400">P</div>
+                                     <div className="w-12 h-10 bg-emerald-500/20 rounded border border-emerald-500/50 flex items-center justify-center text-xs text-emerald-400">P</div>
                                      <div className="w-12 h-10 bg-slate-800 rounded border border-slate-700 flex items-center justify-center text-xs text-slate-500">{"->"}</div>
-                                     <div className="w-12 h-10 bg-purple-500/30 rounded border border-purple-500/50 flex items-center justify-center text-xs text-purple-400">D</div>
+                                     <div className="w-12 h-10 bg-emerald-500/30 rounded border border-emerald-500/50 flex items-center justify-center text-xs text-emerald-400">D</div>
                                 </div>
                             </div>
 
@@ -253,13 +253,6 @@ const PrismHome = ({ onNavigate }) => {
 
                 {/* Secondary Actions / Footer */}
                 <div className="flex space-x-4 mb-16">
-                    <button 
-                        onClick={() => onNavigate('advanced')}
-                        className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-slate-100 rounded-lg border border-slate-700 shadow-sm transition-colors flex items-center text-sm font-medium"
-                    >
-                        <BarChart2 className="mr-2 h-4 w-4 text-blue-400" />
-                        Advanced view / Legacy dashboard
-                    </button>
                     <a 
                         href="https://llm-d.ai/" 
                         target="_blank" 
