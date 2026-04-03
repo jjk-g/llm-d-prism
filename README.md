@@ -53,6 +53,27 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, coding standa
     DEFAULT_PROJECTS="my-google-project-id" npm start
     ```
 
+### Docker Dev Environment (with HMR)
+
+If you do not have Node/NPM installed on your host machine, or prefer a containerized setup, you can use Docker with volume mounting to get a fast development environment with Hot Module Replacement (HMR):
+
+1. **Run the Dev Container**:
+   ```bash
+   docker run -d -p 8081:5173 -p 3000:3000 \
+     -v $(pwd):/app \
+     -v ~/.config/gcloud/application_default_credentials.json:/tmp/adc.json \
+     -e GOOGLE_APPLICATION_DEFAULT_CREDENTIALS=/tmp/adc.json \
+     -w /app \
+     node:20-alpine \
+     sh -c "npm install && npm run dev"
+   ```
+   
+2. **Access the Dashboard**:
+   - Dashboard: http://localhost:8081 (Vite with HMR)
+   - Backend API: http://localhost:3000
+
+This setup mounts your source code into the container, allowing file changes to trigger instant reloads in the browser via Vite's HMR, without needing to rebuild the Docker image.
+
 ### Cloud Deployment (Google Cloud Run)
 
 The application is deployed to Google Cloud Run using the `deploy.sh` script. This script handles API enablement, configuration persistence, and the deployment command itself.

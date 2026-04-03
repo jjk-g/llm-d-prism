@@ -168,3 +168,93 @@ export const parseFromUri = (filePath) => {
         }
     };
 };
+
+const INFERENCE_SCHEDULING_BUCKET = 'llm-d-benchmarks-internal';
+
+export const scanInferenceScheduling = async () => {
+    try {
+        const listUrl = `/api/gcs/storage/v1/b/${INFERENCE_SCHEDULING_BUCKET}/o?prefix=inference-scheduling/`;
+        const response = await fetch(listUrl);
+        if (!response.ok) {
+            throw new Error(`Failed to list GCS bucket objects: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!data.items) return [];
+
+        const reports = [];
+
+        await Promise.all(data.items.map(async (item) => {
+            if (!item.name.endsWith('.yaml')) return;
+            if (!item.name.includes('lifecycle_metrics')) return;
+
+            try {
+                const mediaUrl = `/api/gcs/storage/v1/b/${INFERENCE_SCHEDULING_BUCKET}/o/${encodeURIComponent(item.name)}?alt=media`;
+                const fileRes = await fetch(mediaUrl);
+                if (!fileRes.ok) return;
+
+                const content = await fileRes.text();
+                const parsed = parseInferenceSchedulingReport(content, item.name);
+                if (parsed) reports.push(parsed);
+            } catch (e) {
+                console.warn(`Failed to parse file ${item.name}:`, e);
+            }
+        }));
+
+        return reports;
+
+    } catch (e) {
+        console.error('Inference Scheduling GCS Scan Error:', e);
+        return [];
+    }
+};
+
+export const parseInferenceSchedulingReport = (content, filePath) => {
+    try {
+        const doc = yaml.load(content);
+        if (!doc) return null;
+
+        const aggregate = doc.results?.request_performance?.aggregate || {};
+        const latency = aggregate.latency || {};
+        const throughput = aggregate.throughput || {};
+
+        const ttft = latency.time_to_first_token || {};
+        const tpot = latency.time_per_output_token || {};
+        const itl = latency.inter_token_latency || {};
+
+        const parts = filePath.split('/');
+        const scenario = parts[1] || 'Unknown';
+        const model = parts[2] || 'Unknown';
+        const hardware = parts[3] || 'Unknown';
+        const runId = parts[4] || 'Unknown';
+
+        return {
+            id: crypto.randomUUID(),
+            filePath,
+            scenario,
+            model,
+            hardware,
+            runId,
+            qps: throughput.request_rate?.mean || 0,
+            output_token_rate: throughput.output_token_rate?.mean || 0,
+            ttft: {
+                p50: (ttft.p50 || 0) * 1000,
+                p90: (ttft.p90 || 0) * 1000,
+                p99: (ttft.p99 || 0) * 1000,
+            },
+            tpot: {
+                p50: (tpot.p50 || 0) * 1000,
+                p90: (tpot.p90 || 0) * 1000,
+                p99: (tpot.p99 || 0) * 1000,
+            },
+            itl: {
+                p50: (itl.p50 || 0) * 1000,
+                p90: (itl.p90 || 0) * 1000,
+                p99: (itl.p99 || 0) * 1000,
+            }
+        };
+    } catch (e) {
+        console.warn(`YAML Parsing failed for ${filePath}:`, e);
+        return null;
+    }
+};

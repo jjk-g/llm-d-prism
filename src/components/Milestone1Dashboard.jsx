@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     ScatterChart, Scatter, ZAxis, Label, ReferenceArea, ReferenceLine
 } from 'recharts';
 import { Zap, Download, Copy, Check, Info, ArrowLeft, ExternalLink, Settings, ShieldAlert, Cpu, Cloud, Server, Bell, Slack, ChevronDown, Share2 } from 'lucide-react';
+import { scanInferenceScheduling } from '../utils/gcsScanner';
 
 const RAW_GEMMA_DATA = [
     {
@@ -137,6 +138,38 @@ const CustomReferenceLabel = (props) => {
 
 const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [gcsData, setGcsData] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const reports = await scanInferenceScheduling();
+            
+            const sparseData = reports.map(r => {
+                const prefix = r.scenario === 'k8s-service-baseline' ? 'baseline' : 'router';
+                const item = {
+                    qps: parseFloat(r.qps.toFixed(2)),
+                    output_token_rate: parseFloat(r.output_token_rate.toFixed(2)),
+                };
+                item[`${prefix}_ttft_p50`] = parseFloat(r.ttft.p50.toFixed(2));
+                item[`${prefix}_ttft_p90`] = parseFloat(r.ttft.p90.toFixed(2));
+                item[`${prefix}_ttft_p99`] = parseFloat(r.ttft.p99.toFixed(2));
+                item[`${prefix}_tpot_p50`] = parseFloat(r.tpot.p50.toFixed(2));
+                item[`${prefix}_tpot_p90`] = parseFloat(r.tpot.p90.toFixed(2));
+                item[`${prefix}_tpot_p99`] = parseFloat(r.tpot.p99.toFixed(2));
+                item[`${prefix}_itl_p50`] = parseFloat(r.itl.p50.toFixed(2));
+                item[`${prefix}_itl_p90`] = parseFloat(r.itl.p90.toFixed(2));
+                item[`${prefix}_itl_p99`] = parseFloat(r.itl.p99.toFixed(2));
+                return item;
+            });
+            
+            setGcsData(sparseData);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
+
     const [copied, setCopied] = useState(false);
     const [timeHorizon, setTimeHorizon] = useState('snapshot');
     const [targetQps, setTargetQps] = useState(5);
@@ -155,6 +188,104 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [itlScale, setItlScale] = useState('linear');
     const [itlHistory, setItlHistory] = useState('snapshot');
     const [tputDisplay, setTputDisplay] = useState('tput_sec');
+    const [xUnit, setXUnit] = useState('qps');
+    const [hiddenSeries, setHiddenSeries] = useState([]);
+    const handleLegendClick = (e) => {
+        const { value } = e;
+        setHiddenSeries(prev => 
+            prev.includes(value) 
+                ? prev.filter(v => v !== value) 
+                : [...prev, value]
+        );
+    };
+        const ttftData = React.useMemo(() => {
+        const getSeries = (prefix, percentile) => {
+            return gcsData
+                .filter(d => d[`${prefix}_ttft_${percentile}`] !== undefined)
+                .map(d => ({
+                    x: d[`${prefix}_ttft_${percentile}`],
+                    y: d[xUnit]
+                }))
+                .sort((a, b) => a.x - b.x);
+        };
+        return {
+            baseline_p50: getSeries('baseline', 'p50'),
+            baseline_p90: getSeries('baseline', 'p90'),
+            baseline_p99: getSeries('baseline', 'p99'),
+            router_p50: getSeries('router', 'p50'),
+            router_p90: getSeries('router', 'p90'),
+            router_p99: getSeries('router', 'p99'),
+        };
+    }, [gcsData, xUnit]);
+
+    const tpotData = React.useMemo(() => {
+        const getSeries = (prefix, percentile) => {
+            return gcsData
+                .filter(d => d[`${prefix}_tpot_${percentile}`] !== undefined)
+                .map(d => ({
+                    x: d[`${prefix}_tpot_${percentile}`],
+                    y: d[xUnit]
+                }))
+                .sort((a, b) => a.x - b.x);
+        };
+        return {
+            baseline_p50: getSeries('baseline', 'p50'),
+            baseline_p90: getSeries('baseline', 'p90'),
+            baseline_p99: getSeries('baseline', 'p99'),
+            router_p50: getSeries('router', 'p50'),
+            router_p90: getSeries('router', 'p90'),
+            router_p99: getSeries('router', 'p99'),
+        };
+    }, [gcsData, xUnit]);
+    const tableData = React.useMemo(() => {
+        const routerPoints = gcsData.filter(d => d.router_ttft_p50 !== undefined);
+        const baselinePoints = gcsData.filter(d => d.baseline_ttft_p50 !== undefined).sort((a, b) => a.qps - b.qps);
+        
+        const interpolate = (x, points, key) => {
+            if (points.length === 0) return { value: null, interpolated: false };
+            
+            // Find exact match (within small tolerance)
+            const exact = points.find(p => Math.abs(p.qps - x) < 0.1);
+            if (exact) return { value: exact[key], interpolated: false };
+            
+            // Find surrounding points
+            let lower = null;
+            let upper = null;
+            for (let i = 0; i < points.length; i++) {
+                if (points[i].qps < x) {
+                    lower = points[i];
+                }
+                if (points[i].qps > x) {
+                    upper = points[i];
+                    break;
+                }
+            }
+            
+            if (!lower && !upper) return { value: null, interpolated: false };
+            if (!lower) return { value: upper[key], interpolated: true }; // Extrapolation
+            if (!upper) return { value: lower[key], interpolated: true }; // Extrapolation
+            
+            const ratio = (x - lower.qps) / (upper.qps - lower.qps);
+            const val = lower[key] + ratio * (upper[key] - lower[key]);
+            return { value: val, interpolated: true };
+        };
+
+        return routerPoints.map(rp => {
+            const qps = rp.qps;
+            const ttftResult = interpolate(qps, baselinePoints, 'baseline_ttft_p99');
+            const itlResult = interpolate(qps, baselinePoints, 'baseline_itl_p99');
+            
+            return {
+                qps: Math.round(qps * 10) / 10,
+                router_ttft_p99: rp.router_ttft_p99,
+                router_itl_p99: rp.router_itl_p99,
+                baseline_ttft_p99: ttftResult.value,
+                baseline_ttft_p99_interpolated: ttftResult.interpolated,
+                baseline_itl_p99: itlResult.value,
+                baseline_itl_p99_interpolated: itlResult.interpolated
+            };
+        }).sort((a, b) => a.qps - b.qps);
+    }, [gcsData]);
 
     const handleCopyHelm = () => {
         const cmd = `helm upgrade prism-router ./chart --set router.policy=intelligent_gateway --set target_qps=${targetQps}`;
@@ -380,87 +511,21 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     </div>
                 </div>
 
-                <div className="w-full border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden">
-                    <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-800/50">
-                        <div>
-                            <h3 className="text-lg font-bold text-white flex items-center">
-                                Policy diff: Cache miss variance vs cache hits
-                            </h3>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                {timeHorizon === 'snapshot' ? "Point-in-time request scatter at 5 QPS." : "30-Day Historical Regression (P99 averages at 5 QPS)."}
-                            </p>
-                        </div>
-                        <div className="flex items-center space-x-6">
-                            
-                            <div className="hidden sm:flex space-x-4 text-sm font-medium">
-                                <span className="flex items-center text-slate-400"><div className="w-3 h-3 rounded-full bg-slate-400 mr-2"></div>standard Kubernetes service</span>
-                                <span className="flex items-center text-emerald-400"><div className="w-3 h-3 rounded-full bg-emerald-400 mr-2"></div>Optimal (v1.3.0-igw)</span>
-                            </div>
 
-                            <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                <button onClick={() => setTimeHorizon('snapshot')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${timeHorizon === 'snapshot' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Snapshot</button>
-                                <button onClick={() => setTimeHorizon('historical')} className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${timeHorizon === 'historical' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Historical</button>
-                            </div>
 
-                            <button onClick={handleDownloadCSV} className="p-2 bg-slate-800 text-slate-300 rounded hover:bg-slate-700 hover:text-emerald-400 transition-colors border border-slate-700 group relative" title="Download Raw CSV" >
-                                <Download className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div className="h-80 w-full p-6 pb-2">
-                        <ResponsiveContainer width="100%" height="100%">
-                            {timeHorizon === 'snapshot' ? (
-                                <ScatterChart margin={{ top: 10, right: 30, left: 20, bottom: 25 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false}/>
-                                    <XAxis dataKey="req_id" type="number" stroke="#64748b" tick={{fill:'#64748b', fontSize: 12}}>
-                                        <Label value="Request ID (#)" position="insideBottom" offset={-15} fill="#94a3b8" fontSize={12} />
-                                    </XAxis>
-                                    <YAxis dataKey="ttft" type="number" stroke="#64748b" tick={{fill:'#64748b', fontSize: 12}} scale="log" domain={['auto', 'auto']}>
-                                        <Label value="TTFT (ms) [Log Scale]" angle={-90} position="insideLeft" offset={0} fill="#94a3b8" fontSize={12} />
-                                    </YAxis>
-                                    <Tooltip content={<CustomScatterTooltip />} cursor={{ strokeDasharray: '3 3' }} />
-                                    <ReferenceArea y2={450} fill="#10b981" fillOpacity={0.1} strokeOpacity={0} />
-                                    <ReferenceLine y={450} stroke="#10b981" strokeDasharray="3 3" opacity={0.5} label={<CustomReferenceLabel value="SLA Zone (<450ms)" onClickAlert={() => setIsAlertModalOpen(true)}/>} />
-                                    <Scatter name="standard Kubernetes service" data={SCATTER_DATA_BASELINE} fill="#94a3b8" opacity={0.4} shape="circle" />
-                                    <Scatter name="Optimal (v1.3.0-igw)" data={DYNAMIC_SCATTER_OPTIMAL} fill="#10b981" opacity={1.0} shape="diamond" />
-                                </ScatterChart>
-                            ) : (
-                                <LineChart data={DYNAMIC_HISTORICAL} margin={{ top: 10, right: 40, left: 20, bottom: 25 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.5} vertical={false}/>
-                                    <XAxis dataKey="date" stroke="#64748b" tick={{fill:'#64748b', fontSize: 11}} minTickGap={20}>
-                                        <Label value="Time (Last 30 Days)" position="insideBottom" offset={-15} fill="#94a3b8" fontSize={12} />
-                                    </XAxis>
-                                    <YAxis stroke="#64748b" tick={{fill:'#64748b', fontSize: 12}} scale="log" domain={['auto', 'auto']}>
-                                        <Label value="P99 TTFT (ms) [Log Scale]" angle={-90} position="insideLeft" offset={0} fill="#94a3b8" fontSize={12} />
-                                    </YAxis>
-                                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} itemStyle={{ color: '#e2e8f0' }} labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }} cursor={{ strokeDasharray: '3 3' }} />
-                                    <ReferenceArea y2={450} fill="#10b981" fillOpacity={0.1} strokeOpacity={0} />
-                                    <ReferenceLine y={450} stroke="#10b981" strokeDasharray="3 3" opacity={0.5} label={<CustomReferenceLabel value="SLA Zone (<450ms)" onClickAlert={() => setIsAlertModalOpen(true)}/>} />
-                                    <Line type="monotone" name="standard Kubernetes service" dataKey="baseline_ttft_p99" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={false} activeDot={{ r: 4 }} opacity={0.5} />
-                                    <Line type="stepAfter" name="Optimal (v1.3.0-igw)" dataKey="optimal_ttft_p99" stroke="#10b981" strokeWidth={3} dot={{ r: 2 }} activeDot={{ r: 6 }} />
-                                </LineChart>
-                            )}
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                    
-                    <div className="space-y-8">
-                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-80">
+                <div className="space-y-8">
+                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-[60rem]">
                             <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
                                 <h3 className="text-md font-bold text-white flex justify-between items-center">
-                                    Time to first token (TTFT) vs QPS
+                                    Throughput vs TTFT
                                     <span className="text-xs font-normal text-slate-500 bg-slate-800 px-2 py-1 rounded ml-2">Lower is better</span>
                                 </h3>
                                 
                                 <div className="flex items-center space-x-3">
                                     <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                        <button onClick={() => setTtftHistory('snapshot')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${ttftHistory === 'snapshot' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Snapshot</button>
-                                        <button onClick={() => setTtftHistory('historical')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${ttftHistory === 'historical' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Historical</button>
+                                        <button onClick={() => setXUnit('qps')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'qps' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>QPS</button>
+                                        <button onClick={() => setXUnit('output_token_rate')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'output_token_rate' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Token/s</button>
                                     </div>
-
                                     <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
                                         <button onClick={() => setLatencyScale('linear')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${latencyScale === 'linear' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Linear</button>
                                         <button onClick={() => setLatencyScale('log')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${latencyScale === 'log' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Log</button>
@@ -470,51 +535,73 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                             <div className="flex-1 p-4 flex flex-col justify-between h-[18rem]">
                                 <div className="h-[85%] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart syncId="prism_analytics" data={ttftHistory === 'snapshot' ? DYNAMIC_GEMMA_DATA : DYNAMIC_HISTORICAL} margin={{ top: 15, right: 30, left: 10, bottom: 20 }}>
+                                        <ScatterChart syncId="prism_analytics" margin={{ top: 15, right: 30, left: 10, bottom: 20 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                            <XAxis dataKey={ttftHistory === 'snapshot' ? "qps" : "date"} stroke="#64748b" tick={{fontSize: 12}}>
-                                                <Label value={ttftHistory === 'snapshot' ? "QPS (reqs/sec)" : "Time (Last 30 Days)"} position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
+                                            <XAxis type="number" dataKey="x" stroke="#64748b" tick={{fontSize: 12}} scale={latencyScale} domain={latencyScale === 'log' ? ['auto', 'auto'] : [0, 'auto']}>
+                                                <Label value="TTFT (ms)" position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
                                             </XAxis>
-                                            <YAxis stroke="#64748b" tick={{fontSize: 12}} scale={latencyScale} domain={latencyScale === 'log' ? ['auto', 'auto'] : [0, 'auto']}>
-                                                <Label value="TTFT (ms)" angle={-90} position="insideLeft" offset={10} fill="#94a3b8" fontSize={12}/>
+                                            <YAxis type="number" dataKey="y" stroke="#64748b" tick={{fontSize: 12}}>
+                                                <Label value={xUnit === 'qps' ? "QPS (reqs/sec)" : "Output Token Rate (tokens/sec)"} angle={-90} position="insideLeft" offset={10} fill="#94a3b8" fontSize={12}/>
                                             </YAxis>
                                             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} itemStyle={{ color: '#e2e8f0' }} labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }} />
-                                            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px', color: '#cbd5e1' }}/>
+                                            <Legend 
+                                                verticalAlign="top" 
+                                                height={36} 
+                                                content={(props) => {
+                                                    const { payload } = props;
+                                                    return (
+                                                        <div className="flex flex-wrap justify-center gap-4 text-xs mb-4">
+                                                            {payload.map((entry, index) => {
+                                                                const isHidden = hiddenSeries.includes(entry.value);
+                                                                return (
+                                                                    <div 
+                                                                        key={`item-${index}`} 
+                                                                        className={`flex items-center cursor-pointer transition-colors ${isHidden ? 'text-slate-600' : 'text-slate-300 hover:text-white'}`}
+                                                                        onClick={() => handleLegendClick({ value: entry.value })}
+                                                                    >
+                                                                        <div 
+                                                                            className="w-3 h-3 mr-1.5 rounded-sm" 
+                                                                            style={{ 
+                                                                                backgroundColor: isHidden ? '#334155' : entry.color,
+                                                                                opacity: isHidden ? 0.3 : 1
+                                                                            }} 
+                                                                        />
+                                                                        <span>{entry.value}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
                                             
-                                            {saturationQps && (
-                                                <ReferenceLine x={saturationQps} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'insideTopRight', value: 'Saturation limit', fill: '#ef4444', fontSize: 11 }} />
-                                            )}
-
-                                            <Line type="monotone" dataKey="baseline_ttft_p99" name="standard Kubernetes service" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={{ r: 3 }} />
-                                            <Line type="monotone" dataKey="baseline_ttft_p90" name="Baseline P90" stroke="#64748b" strokeDasharray="3 3" strokeWidth={1} dot={false} />
-                                            <Line type="monotone" dataKey="optimal_ttft_p99" name="Optimal P99" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                            <Line type="monotone" dataKey="optimal_ttft_p90" name="Optimal P90" stroke="#34d399" strokeDasharray="3 3" strokeWidth={1} dot={false} />
-                                            <Line type="monotone" dataKey="optimal_ttft_p50" name="Optimal P50" stroke="#059669" strokeWidth={1} dot={false} />
-                                        </LineChart>
+                                            {/* Baseline Lines */}
+                                            <Scatter name="Baseline P50" data={hiddenSeries.includes('Baseline P50') ? [] : ttftData.baseline_p50} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1 }} shape="circle" opacity={1.0} />
+                                            <Scatter name="Baseline P90" data={hiddenSeries.includes('Baseline P90') ? [] : ttftData.baseline_p90} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
+                                            <Scatter name="Baseline P99" data={hiddenSeries.includes('Baseline P99') ? [] : ttftData.baseline_p99} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 2 }} shape="circle" opacity={0.3} />
+                                            
+                                            {/* Router Lines */}
+                                            <Scatter name="Router P50" data={hiddenSeries.includes('Router P50') ? [] : ttftData.router_p50} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1 }} shape="circle" opacity={1.0} />
+                                            <Scatter name="Router P90" data={hiddenSeries.includes('Router P90') ? [] : ttftData.router_p90} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
+                                            <Scatter name="Router P99" data={hiddenSeries.includes('Router P99') ? [] : ttftData.router_p99} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 2 }} shape="circle" opacity={0.3} />
+                                        </ScatterChart>
                                     </ResponsiveContainer>
-                                </div>
-                                <div className="flex items-center space-x-4 text-[11px] text-slate-500 pt-2 border-t border-slate-800/50">
-                                    <div className="flex items-center">
-                                        <div className="w-3 h-0.5 border-t-2 border-red-500 border-dashed mr-1"></div>
-                                        <span>Saturation limit (Dynamic &gt; 2000ms)</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-80">
+                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-[60rem]">
                             <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
                                 <h3 className="text-md font-bold text-white flex justify-between items-center">
-                                    Inter-token latency (ITL) vs QPS
+                                    Throughput vs TPOT
                                     <span className="text-xs font-normal text-slate-500 bg-slate-800 px-2 py-1 rounded ml-2">Lower is better</span>
                                 </h3>
                                 
                                 <div className="flex items-center space-x-3">
                                     <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                        <button onClick={() => setItlHistory('snapshot')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${itlHistory === 'snapshot' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Snapshot</button>
-                                        <button onClick={() => setItlHistory('historical')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${itlHistory === 'historical' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Historical</button>
+                                        <button onClick={() => setXUnit('qps')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'qps' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>QPS</button>
+                                        <button onClick={() => setXUnit('output_token_rate')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'output_token_rate' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Token/s</button>
                                     </div>
-
                                     <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
                                         <button onClick={() => setItlScale('linear')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${itlScale === 'linear' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Linear</button>
                                         <button onClick={() => setItlScale('log')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${itlScale === 'log' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Log</button>
@@ -524,83 +611,63 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                             <div className="flex-1 p-4 flex flex-col justify-between h-[18rem]">
                                 <div className="h-[85%] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <LineChart syncId="prism_analytics" data={itlHistory === 'snapshot' ? DYNAMIC_GEMMA_DATA : DYNAMIC_HISTORICAL_ITL} margin={{ top: 15, right: 30, left: 10, bottom: 20 }}>
+                                        <ScatterChart syncId="prism_analytics" margin={{ top: 15, right: 30, left: 10, bottom: 20 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                            <XAxis dataKey={itlHistory === 'snapshot' ? "qps" : "date"} stroke="#64748b" tick={{fontSize: 12}}>
-                                                <Label value={itlHistory === 'snapshot' ? "QPS (reqs/sec)" : "Time (Last 30 Days)"} position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
+                                            <XAxis type="number" dataKey="x" stroke="#64748b" tick={{fontSize: 12}} scale={itlScale} domain={itlScale === 'log' ? ['auto', 'auto'] : [0, 'auto']}>
+                                                <Label value="TPOT (ms)" position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
                                             </XAxis>
-                                            <YAxis stroke="#64748b" tick={{fontSize: 12}} scale={itlScale} domain={itlScale === 'log' ? ['auto', 'auto'] : [0, 'auto']}>
-                                                <Label value="ITL (ms)" angle={-90} position="insideLeft" offset={10} fill="#94a3b8" fontSize={12}/>
+                                            <YAxis type="number" dataKey="y" stroke="#64748b" tick={{fontSize: 12}}>
+                                                <Label value={xUnit === 'qps' ? "QPS (reqs/sec)" : "Output Token Rate (tokens/sec)"} angle={-90} position="insideLeft" offset={10} fill="#94a3b8" fontSize={12}/>
                                             </YAxis>
                                             <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} itemStyle={{ color: '#e2e8f0' }} labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }} cursor={{ strokeDasharray: '3 3' }} />
-                                            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px' }}/>
+                                            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px' }} onClick={handleLegendClick} />
                                             
-                                            <ReferenceLine y={100} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'insideTopRight', value: 'Typing limit (100ms)', fill: '#ef4444', fontSize: 11 }} />
-
-                                            <Line type="stepAfter" dataKey={itlHistory === 'snapshot' ? "baseline_itl_p99" : "baseline_itl_p99"} name="standard Kubernetes service" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={{ r: 3 }} />
-                                            <Line type="stepAfter" dataKey={itlHistory === 'snapshot' ? "optimal_itl_p99" : "optimal_itl_p99"} name="Optimal P99" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                            {itlHistory === 'snapshot' && (
-                                                <Line type="stepAfter" dataKey="optimal_itl_p50" name="Optimal P50" stroke="#059669" strokeWidth={1} dot={false} opacity={0.6} />
-                                            )}
-                                        </LineChart>
+                                            <Legend 
+                                                verticalAlign="top" 
+                                                height={36} 
+                                                content={(props) => {
+                                                    const { payload } = props;
+                                                    return (
+                                                        <div className="flex flex-wrap justify-center gap-4 text-xs mb-4">
+                                                            {payload.map((entry, index) => {
+                                                                const isHidden = hiddenSeries.includes(entry.value);
+                                                                return (
+                                                                    <div 
+                                                                        key={`item-${index}`} 
+                                                                        className={`flex items-center cursor-pointer transition-colors ${isHidden ? 'text-slate-600' : 'text-slate-300 hover:text-white'}`}
+                                                                        onClick={() => handleLegendClick({ value: entry.value })}
+                                                                    >
+                                                                        <div 
+                                                                            className="w-3 h-3 mr-1.5 rounded-sm" 
+                                                                            style={{ 
+                                                                                backgroundColor: isHidden ? '#334155' : entry.color,
+                                                                                opacity: isHidden ? 0.3 : 1
+                                                                            }} 
+                                                                        />
+                                                                        <span>{entry.value}</span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    );
+                                                }}
+                                            />
+                                            
+                                            {/* Baseline Lines */}
+                                            <Scatter name="Baseline P50" data={hiddenSeries.includes('Baseline P50') ? [] : tpotData.baseline_p50} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1 }} shape="circle" opacity={1.0} />
+                                            <Scatter name="Baseline P90" data={hiddenSeries.includes('Baseline P90') ? [] : tpotData.baseline_p90} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
+                                            <Scatter name="Baseline P99" data={hiddenSeries.includes('Baseline P99') ? [] : tpotData.baseline_p99} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 2 }} shape="circle" opacity={0.3} />
+                                            
+                                            {/* Router Lines */}
+                                            <Scatter name="Router P50" data={hiddenSeries.includes('Router P50') ? [] : tpotData.router_p50} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1 }} shape="circle" opacity={1.0} />
+                                            <Scatter name="Router P90" data={hiddenSeries.includes('Router P90') ? [] : tpotData.router_p90} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
+                                            <Scatter name="Router P99" data={hiddenSeries.includes('Router P99') ? [] : tpotData.router_p99} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 2 }} shape="circle" opacity={0.3} />
+                                        </ScatterChart>
                                     </ResponsiveContainer>
-                                </div>
-                                <div className="flex items-center space-x-4 text-[11px] text-slate-500 pt-2 border-t border-slate-800/50">
-                                    <div className="flex items-center">
-                                        <div className="w-3 h-0.5 border-t-2 border-red-500 border-dashed mr-1"></div>
-                                        <span>Typing speed limit (100ms threshold)</span>
-                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-
-                    <div className="space-y-8">
-                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-[42.5rem]">
-                            <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
-                                <h3 className="text-md font-bold text-white flex justify-between items-center">
-                                    System throughput vs QPS
-                                    <span className="text-xs font-normal text-emerald-500 bg-emerald-950/30 border border-emerald-900/50 px-2 py-1 rounded ml-2">Higher is better</span>
-                                </h3>
-                                
-                                <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                    <button onClick={() => setTputDisplay('tput_sec')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${tputDisplay === 'tput_sec' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Total Tokens/sec</button>
-                                    <button onClick={() => setTputDisplay('tokens_dollar')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${tputDisplay === 'tokens_dollar' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Tokens/$</button>
-                                </div>
-                            </div>
-                            <div className="flex-1 p-6 flex flex-col justify-between">
-                                <div className="h-[85%]">
-                                    <p className="text-sm text-slate-400 mb-6">Visualizing total output tokens processed per second as request rate scales. The Optimal path maintains stability at higher load bounds.</p>
-                                    <ResponsiveContainer width="100%" height="80%">
-                                        <LineChart syncId="prism_analytics" data={tputDisplay === 'tput_sec' ? RAW_GEMMA_DATA : DYNAMIC_TPUT_DATA} margin={{ top: 15, right: 30, left: 20, bottom: 20 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                            <XAxis dataKey="qps" stroke="#64748b" tick={{fontSize: 12}}>
-                                                <Label value="QPS (reqs/sec)" position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
-                                            </XAxis>
-                                            <YAxis stroke="#64748b" tick={{fontSize: 12}}>
-                                                <Label value={tputDisplay === 'tput_sec' ? "Total Output Tokens (tokens/sec)" : "Tokens Per Dollar ($)"} angle={-90} position="insideLeft" offset={0} fill="#94a3b8" fontSize={12}/>
-                                            </YAxis>
-                                            <Tooltip content={<CustomTputTooltip />} cursor={{ strokeDasharray: '3 3' }} />
-                                            <Legend verticalAlign="top" height={40} wrapperStyle={{ fontSize: '12px' }}/>
-                                            
-                                            <ReferenceLine y={tputDisplay === 'tput_sec' ? maxThroughput : maxThroughput / activeCost} stroke="#ef4444" strokeDasharray="3 3" label={{ position: 'insideTopRight', value: 'VRAM ceiling', fill: '#ef4444', fontSize: 11 }} />
-
-                                            <Line type="monotone" dataKey={tputDisplay === 'tput_sec' ? "baseline_tput" : "baseline_tput"} name="standard Kubernetes service" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={{ r: 4 }} />
-                                            <Line type="monotone" dataKey={tputDisplay === 'tput_sec' ? "optimal_tput" : "optimal_tput"} name="Optimal Throughput" stroke="#10b981" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8, fill: '#34d399' }} />
-                                        </LineChart>
-                                    </ResponsiveContainer>
-                                </div>
-                                <div className="flex items-center space-x-4 text-[11px] text-slate-500 pt-2 border-t border-slate-800/50">
-                                    <div className="flex items-center">
-                                        <div className="w-3 h-0.5 border-t-2 border-red-500 border-dashed mr-1"></div>
-                                        <span>Hardware Ceiling (VRAM bound)</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
                 
                 {/* Summary Metrics Table */}
                 <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl p-6 flex flex-col h-[28rem]">
@@ -623,17 +690,25 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {DYNAMIC_GEMMA_DATA.filter(d => d.qps === 1 || d.qps === 5 || d.qps === 8 || d.qps === 12).map((row, idx) => {
+                                {tableData.map((row, idx) => {
                                     const base99 = row.baseline_ttft_p99 || 0;
-                                    const opt99 = row.optimal_ttft_p99 || 0;
+                                    const opt99 = row.router_ttft_p99 || 0;
                                     const ttftRed = base99 && opt99 ? Math.round((base99 - opt99) / base99 * 100) : 0;
+                                    const baseItl = row.baseline_itl_p99 || 0;
+                                    const optItl = row.router_itl_p99 || 0;
                                     return (
                                         <tr key={idx} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
                                             <td className="px-4 py-4 font-mono font-bold text-white">{row.qps}</td>
-                                            <td className="px-4 py-4 font-mono">{Math.round(base99)}ms</td>
-                                            <td className="px-4 py-4 font-mono text-emerald-400 font-semibold">{Math.round(opt99)}ms</td>
-                                            <td className="px-4 py-4 font-mono">{Math.round(row.baseline_itl_p99 || 0)}ms</td>
-                                            <td className="px-4 py-4 font-mono text-emerald-400 font-semibold">{Math.round(row.optimal_itl_p99 || 0)}ms</td>
+                                            <td className="px-4 py-4 font-mono" title={row.baseline_ttft_p99_interpolated ? "Interpolated value based on surrounding QPS data points" : ""}>
+                                                {base99 ? `${Math.round(base99)}ms` : 'N/A'}
+                                                {row.baseline_ttft_p99_interpolated && <span className="text-amber-400 ml-0.5">*</span>}
+                                            </td>
+                                            <td className="px-4 py-4 font-mono text-emerald-400 font-semibold">{opt99 ? `${Math.round(opt99)}ms` : 'N/A'}</td>
+                                            <td className="px-4 py-4 font-mono" title={row.baseline_itl_p99_interpolated ? "Interpolated value based on surrounding QPS data points" : ""}>
+                                                {baseItl ? `${Math.round(baseItl)}ms` : 'N/A'}
+                                                {row.baseline_itl_p99_interpolated && <span className="text-amber-400 ml-0.5">*</span>}
+                                            </td>
+                                            <td className="px-4 py-4 font-mono text-emerald-400 font-semibold">{optItl ? `${Math.round(optItl)}ms` : 'N/A'}</td>
                                             <td className="px-4 py-4">
                                                 <span className={`px-2 py-1 text-xs font-bold rounded-full ${ttftRed > 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-500/20 text-slate-400 border border-slate-500/30'}`}>
                                                     {ttftRed > 0 ? `+${ttftRed}%` : 'N/A'}
