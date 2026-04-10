@@ -3,7 +3,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
     ScatterChart, Scatter, ZAxis, Label, ReferenceArea, ReferenceLine
 } from 'recharts';
-import { Zap, Download, Copy, Check, Info, ArrowLeft, ExternalLink, Settings, ShieldAlert, Cpu, Cloud, Server, Bell, Slack, ChevronDown, Share2 } from 'lucide-react';
+import { Zap, Download, Copy, Check, Info, ArrowLeft, ExternalLink, Settings, ShieldAlert, Cpu, Cloud, Server, Bell, Slack, ChevronDown, Share2, Eye, Maximize2, ArrowDown } from 'lucide-react';
 import { scanInferenceScheduling } from '../utils/gcsScanner';
 
 const RAW_GEMMA_DATA = [
@@ -135,10 +135,53 @@ const CustomReferenceLabel = (props) => {
     );
 };
 
+const RichSchedulingTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+    const isScatter = payload[0].payload.x !== undefined && payload[0].payload.y !== undefined;
+    const qpsVal = payload[0].payload.qps ?? payload[0].payload.y ?? 'N/A';
+    return (
+        <div className="bg-slate-900/95 border border-slate-700/50 rounded-lg shadow-xl p-3 min-w-[200px] backdrop-blur-md text-slate-100 z-[100]">
+            {/* Unified Shared Context Header */}
+            <div className="border-b border-slate-200 dark:border-slate-700/60 pb-1.5 mb-1.5">
+                <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wider leading-none mb-1">
+                    Gateway Simulation
+                </div>
+                <div className="text-[11px] font-mono text-slate-400 leading-tight">
+                    4x NVIDIA H100 • Seq: 1024/128
+                </div>
+                {!isScatter && (
+                    <div className="text-xs font-bold text-white mt-1">
+                        QPS: {qpsVal}
+                    </div>
+                )}
+            </div>
+
+            {/* Series Values List */}
+            <div className="space-y-1">
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-1.5">
+                            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: entry.stroke || entry.fill }} />
+                            <span className="text-[11px] text-slate-300">{entry.name}</span>
+                        </div>
+                        <span className="text-[11px] font-mono font-bold text-white">
+                            {isScatter ? (
+                                `Latency (x): ${entry.payload.x}ms • QPS (y): ${entry.payload.y}`
+                            ) : (
+                                `${entry.value ?? entry.payload.x} ${entry.name.includes('Rate') ? 'tokens/s' : 'ms'}`
+                            )}
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 
 const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [gcsData, setGcsData] = useState([]);
+    const [reportsMeta, setReportsMeta] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -165,6 +208,9 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
             });
             
             setGcsData(sparseData);
+            if (reports && reports.length > 0) {
+                setReportsMeta(reports[0]);
+            }
             setLoading(false);
         };
         fetchData();
@@ -176,6 +222,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     
     const [provider, setProvider] = useState('GCP');
     const [hardware, setHardware] = useState('4x H100 80GB');
+    const [showFullProfile, setShowFullProfile] = useState(false);
     const [shareToast, setShareToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
     const [perfMultiplier, setPerfMultiplier] = useState(1.0);
@@ -190,6 +237,34 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [tputDisplay, setTputDisplay] = useState('tput_sec');
     const [xUnit, setXUnit] = useState('qps');
     const [hiddenSeries, setHiddenSeries] = useState([]);
+    const [zoomedChart, setZoomedChart] = useState(null);
+    const [zoomYAxis, setZoomYAxis] = useState('output');
+    const [zoomXAxis, setZoomXAxis] = useState('tpot');
+    const [zoomCostMode, setZoomCostMode] = useState('spot');
+    const [zoomPerChip, setZoomPerChip] = useState(false);
+    const [zoomLogScale, setZoomLogScale] = useState(false);
+    const [zoomShowPareto, setZoomShowPareto] = useState(false);
+    const [zoomXMax, setZoomXMax] = useState(Infinity);
+    const [zoomColorMode, setZoomColorMode] = useState('hardware');
+
+    const openZoom = (id) => {
+        setZoomLogScale(false);
+        setZoomPerChip(false);
+        setZoomXMax(Infinity);
+        setZoomCostMode('spot');
+        setZoomColorMode('hardware');
+        
+        if (id === 1) { setZoomXAxis('itl'); setZoomYAxis('output'); }
+        else if (id === 2) { setZoomXAxis('ttft'); setZoomYAxis('output'); }
+        else if (id === 3) { setZoomXAxis('tokens_sec'); setZoomYAxis('output'); }
+        else if (id === 4) { setZoomXAxis('tokens_sec'); setZoomYAxis('input'); }
+        else if (id === 5) { setZoomXAxis('tokens_sec'); setZoomYAxis('output'); }
+        else if (id === 6) { setZoomXAxis('tokens_sec'); setZoomYAxis('total'); }
+        else if (id === 7) { setZoomXAxis('ttft'); setZoomYAxis('output'); }
+        else if (id === 8) { setZoomXAxis('tpot'); setZoomYAxis('output'); }
+        
+        setZoomedChart(id);
+    };
     const handleLegendClick = (e) => {
         const { value } = e;
         setHiddenSeries(prev => 
@@ -237,6 +312,17 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
             router_p99: getSeries('router', 'p99'),
         };
     }, [gcsData, xUnit]);
+
+    const additionalChartData = React.useMemo(() => {
+        return gcsData.map(d => {
+            const input_token_rate = d.qps * 512;
+            return {
+                ...d,
+                input_token_rate,
+                total_token_rate: input_token_rate + (d.output_token_rate || 0)
+            };
+        }).sort((a, b) => a.qps - b.qps);
+    }, [gcsData]);
     const tableData = React.useMemo(() => {
         const routerPoints = gcsData.filter(d => d.router_ttft_p50 !== undefined);
         const baselinePoints = gcsData.filter(d => d.baseline_ttft_p50 !== undefined).sort((a, b) => a.qps - b.qps);
@@ -412,269 +498,356 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
             </header>
 
             <main className="w-full max-w-7xl px-6 py-8 flex flex-col space-y-8">
-
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* CARD 1: Context */}
-                    <div className="col-span-1 lg:col-span-2 border border-slate-800 rounded-xl bg-slate-900/50 p-6 flex flex-col justify-start">
-                        <div className="mb-4">
-                            <p className="text-sm text-slate-400 font-semibold uppercase tracking-wider mb-1">Benchmark context</p>
-                            <h3 className="text-lg font-bold text-white mb-1">Gemma3 model evaluation</h3>
-                            <p className="text-xs text-slate-500 leading-relaxed">Focusing on standard routing vs. Intelligent Gateway (IGW) scheduling policies resolving high variance.</p>
-                        </div>
-                        
-                        {/* Interactive Infrastructure Filters */}
-                        <div className="flex flex-wrap gap-x-3 gap-y-3 mt-1 items-end">
-                            
-                            <div className="relative inline-block text-left group">
-                                <label className="text-[10px] text-slate-500 uppercase font-bold absolute -top-2 left-2 bg-slate-900/50 px-1 z-10 backdrop-blur-md rounded transition-colors group-hover:text-cyan-400">Provider</label>
-                                <select value={provider} onChange={(e) => setProvider(e.target.value)} className="appearance-none bg-slate-800/80 text-xs text-cyan-400 pl-8 pr-8 py-2 rounded-md border border-slate-700 hover:border-cyan-500/50 outline-none w-32 shadow-sm cursor-pointer transition-colors backdrop-blur-md">
-                                    <option value="GCP">GCP</option>
-                                    <option value="AWS">AWS</option>
-                                    <option value="Azure">Azure</option>
-                                </select>
-                                <Cloud className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-cyan-500 z-10 pointer-events-none" />
-                                <ChevronDown className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-slate-500 z-10 pointer-events-none group-hover:text-cyan-400 transition-colors" />
-                            </div>
-
-                            <div className="relative inline-block text-left group">
-                                <label className="text-[10px] text-slate-500 uppercase font-bold absolute -top-2 left-2 bg-slate-900/50 px-1 z-10 backdrop-blur-md rounded transition-colors group-hover:text-purple-400">Hardware</label>
-                                <select value={hardware} onChange={handleHardwareChange} className="appearance-none bg-slate-800/80 text-xs text-purple-400 pl-8 pr-8 py-2 rounded-md border border-slate-700 hover:border-purple-500/50 outline-none w-36 shadow-sm cursor-pointer transition-colors backdrop-blur-md">
-                                    {provider === 'GCP' ? (
-                                        <>
-                                            <option value="4x H100 80GB">4x H100 80GB</option>
-                                            <option value="8x A100 40GB">8x A100 40GB</option>
-                                            <option value="1x L4">1x L4</option>
-                                        </>
-                                    ) : provider === 'AWS' ? (
-                                        <>
-                                            <option value="p5.48xlarge (H100)">p5.48xlarge</option>
-                                            <option value="p4d.24xlarge (A100)">p4d.24xlarge</option>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <option value="ND H100 v5">ND H100 v5</option>
-                                        </>
-                                    )}
-                                </select>
-                                <Server className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-purple-400 z-10 pointer-events-none" />
-                                <ChevronDown className="absolute right-2.5 top-2.5 w-3.5 h-3.5 text-slate-500 z-10 pointer-events-none group-hover:text-purple-400 transition-colors" />
-                            </div>
-
-                            <div className="relative inline-block text-left">
-                                <label className="text-[10px] text-slate-500 uppercase font-bold absolute -top-2 left-2 bg-slate-900/50 px-1 z-10 backdrop-blur-md rounded">Precision</label>
-                                <div className="bg-slate-800/50 text-xs text-slate-300 pl-8 pr-6 py-2 rounded-md border border-slate-700/50 w-28 cursor-not-allowed">
-                                    Int8
-                                </div>
-                                <Cpu className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400 z-10 pointer-events-none" />
-                            </div>
-
-                            <div className="relative inline-block text-left">
-                                <label className="text-[10px] text-slate-500 uppercase font-bold absolute -top-2 left-2 bg-slate-900/50 px-1 z-10 backdrop-blur-md rounded">Dataset</label>
-                                <div className="bg-slate-800/50 text-xs text-slate-300 pl-8 pr-6 py-2 rounded-md border border-slate-700/50 w-32 cursor-not-allowed">
-                                    ShareGPT
-                                </div>
-                                <Info className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-amber-500/70 z-10 pointer-events-none" />
-                            </div>
-                        </div>
-
-                    </div>
+                {/* Description Card - Premium Aesthetic */}
+                <div className="relative overflow-hidden border border-slate-800/80 rounded-2xl bg-gradient-to-br from-slate-900/90 via-slate-900/50 to-slate-950/90 p-8 shadow-2xl backdrop-blur-xl group transition-all duration-500 hover:border-emerald-500/30">
+                    {/* Ambient glowing background orb */}
+                    <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all duration-700 pointer-events-none" />
+                    <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl group-hover:bg-cyan-500/20 transition-all duration-700 pointer-events-none" />
                     
-                    {/* CARD 2: Metric */}
-                    <div className="col-span-1 border border-slate-800 rounded-xl bg-slate-900 p-6 flex flex-col items-start justify-start shadow-lg relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-all group-hover:bg-emerald-500/20" />
-                        <div className="w-full h-full flex flex-col justify-between">
+                    <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="flex-1 space-y-3">
+                            <h3 className="text-lg font-bold text-white">
+                                Optimize vLLM with prefix-cache aware routing
+                            </h3>
+                            <p className="text-sm text-slate-400 leading-relaxed max-w-3xl">
+                                Monitors the effectiveness of intelligent load balancing and <strong className="text-slate-200">prefix-cache aware routing</strong>. By observing request traffic and cache locality, it routes requests to optimal instances, reducing tail latency and boosting throughput.
+                            </p>
+                        </div>
+                        <div className="flex-shrink-0 self-start md:self-center flex flex-col gap-2">
+                            <a href="https://llm-d.ai/docs/guide/Installation/inference-scheduling" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center px-5 py-2.5 bg-slate-800/50 hover:bg-slate-700/50 text-slate-300 font-medium text-sm rounded-xl border border-slate-700 hover:border-slate-600 transition-all duration-300 group/btn">
+                                Read full guide <ExternalLink className="w-4 h-4 ml-2 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Evaluation Control Panel (Cards Grid) */}
+                {/* Uniform Evaluation Control Panel (Cards Grid) */}
+                {/* Distinct Evaluation Control Panel (Cards Grid) with fully identical title typography */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* CARD 1: Benchmark Profile */}
+                    <div className="border border-slate-800/80 rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 p-4 flex flex-col justify-between shadow-lg relative overflow-hidden">
+                        <div className="absolute -top-12 -left-12 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
+                        <div>
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2 block">
+                                {reportsMeta?.scenario ? "Standard vs. Prefix-Aware Caching" : "Experiment Context"}
+                            </span>
+                            <h3 className="text-base font-bold text-white">
+                                {reportsMeta?.model || "Qwen3-32B"} + {reportsMeta?.accelerator || "H100"}
+                            </h3>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-x-3 mt-4 text-[10px]">
                             <div>
-                                <p className="text-sm text-slate-400 font-semibold uppercase tracking-wider mb-1">Primary outcome</p>
-                                <h3 className="text-lg font-bold text-white mb-2">TTFT P99 reduction</h3>
-                                <h4 className="text-4xl font-black text-emerald-400 flex items-baseline">
-                                    {perfMultiplier > 1 ? "82%" : "88%"} <span className="text-lg font-medium text-emerald-500/70 ml-2">Drop</span>
-                                </h4>
-                                <div className="mt-1 flex items-baseline space-x-1.5">
-                                    <span className="text-xs font-bold text-emerald-300">-{Math.round(6954 - (854 * perfMultiplier))}ms</span>
-                                    <span className="text-[11px] text-slate-400">absolute saved</span>
+                                <span className="block text-slate-500 font-semibold mb-1">PROVIDER</span>
+                                <div className="flex items-center gap-1">
+                                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                    </svg>
+                                    <span className="font-mono text-slate-300 truncate">Google Cloud</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-slate-500 mt-3">At 5 QPS, standard Kubernetes service hit <span className="text-slate-300">6,954ms</span> compared to Optimal <span className="text-white">{Math.round(854 * perfMultiplier)}ms</span>.</p>
+                            <div>
+                                <span className="block text-slate-500 font-semibold mb-1">TOPOLOGY</span>
+                                <span className="font-mono text-slate-300 truncate block">1x4 SXM5 (4)</span>
+                            </div>
+                            <div>
+                                <span className="block text-slate-500 font-semibold mb-1">WORKLOAD CATALOG</span>
+                                <span className="font-mono text-slate-300 truncate block">High-Load QA</span>
+                            </div>
                         </div>
                     </div>
 
-                    {/* CARD 3: Action */}
-                    <div className="col-span-1 border border-slate-800 rounded-xl bg-slate-900 p-6 flex flex-col items-start justify-between shadow-lg relative overflow-hidden text-left">
-                         <div className="w-full mb-4">
-                             <p className="text-sm text-slate-400 font-semibold uppercase tracking-wider mb-1">Recommended action</p>
-                             <h3 className="text-lg font-bold text-white mb-1">Deploy policy</h3>
-                             <p className="text-xs text-slate-500 leading-relaxed">Apply this optimized routing configuration directly to your cluster via Helm.</p>
+                    {/* CARD 2: Primary Outcome Metric */}
+                    <div 
+                        onClick={() => document.getElementById('summary-table')?.scrollIntoView({ behavior: 'smooth' })}
+                        className="border border-slate-800 rounded-xl bg-slate-900 p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all"
+                    >
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none transition-all group-hover:bg-emerald-500/10" />
+                        <div>
+                            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2 flex justify-between items-center">
+                                Primary outcome
+                                <span className="text-[8px] px-1 py-0.5 rounded bg-slate-800 text-slate-400 font-mono border border-slate-700 flex items-center gap-1">
+                                    <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" /> P99 Tail
+                                </span>
+                            </p>
+                            <h3 className="text-base font-bold text-white mb-2">
+                                Tail latency reduction
+                            </h3>
+                            <h4 className="text-3xl font-black text-emerald-400 flex items-baseline tracking-tight">
+                                {(() => {
+                                    const validRows = tableData.filter(r => r.baseline_ttft_p99 > 0 && r.router_ttft_p99 > 0);
+                                    if (validRows.length === 0) return "41%";
+                                    const r = validRows[validRows.length - 1];
+                                    const gain = ((r.baseline_ttft_p99 - r.router_ttft_p99) / r.baseline_ttft_p99) * 100;
+                                    return `${Math.round(gain)}%`;
+                                })()}
+                                <span className="text-xs font-bold text-emerald-500/80 ml-1.5">Reduction</span>
+                            </h4>
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between">
+                            <span className="text-[9px] text-slate-500">
+                                Click to jump directly to detailed results table
+                            </span>
+                            <span className="text-[10px] font-medium text-slate-300 bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/80 px-2.5 py-1 rounded transition-all duration-200">
+                                View table
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* CARD 3: Reproducibility Guide */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900 p-4 flex flex-col justify-between shadow-lg relative overflow-hidden">
+                         <div>
+                             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">
+                                 Action
+                             </p>
+                             <h3 className="text-base font-bold text-white mb-1">
+                                 Reproducibility guide
+                             </h3>
+                             <p className="text-[9px] text-slate-500 leading-relaxed">
+                                 Replicate this intelligent routing baseline directly on your Kubernetes evaluation cluster.
+                             </p>
                          </div>
-                         <button onClick={() => setIsModalOpen(true)} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all flex justify-center items-center">
-                            <Zap className="w-4 h-4 mr-2" /> Reproduce deploy
+
+                         <button onClick={() => setIsModalOpen(true)} className="w-full mt-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg shadow transition-all flex justify-center items-center">
+                            <Zap className="w-3.5 h-3.5 mr-1.5" /> View instructions
                          </button>
                     </div>
                 </div>
 
 
 
-                <div className="space-y-8">
-                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-[60rem]">
-                            <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
-                                <h3 className="text-md font-bold text-white flex justify-between items-center">
-                                    Throughput vs TTFT
-                                    <span className="text-xs font-normal text-slate-500 bg-slate-800 px-2 py-1 rounded ml-2">Lower is better</span>
-                                </h3>
-                                
-                                <div className="flex items-center space-x-3">
-                                    <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                        <button onClick={() => setXUnit('qps')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'qps' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>QPS</button>
-                                        <button onClick={() => setXUnit('output_token_rate')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'output_token_rate' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Token/s</button>
-                                    </div>
-                                    <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                        <button onClick={() => setLatencyScale('linear')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${latencyScale === 'linear' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Linear</button>
-                                        <button onClick={() => setLatencyScale('log')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${latencyScale === 'log' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Log</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex-1 p-4 flex flex-col justify-between h-[18rem]">
-                                <div className="h-[85%] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <ScatterChart syncId="prism_analytics" margin={{ top: 15, right: 30, left: 10, bottom: 20 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                            <XAxis type="number" dataKey="x" stroke="#64748b" tick={{fontSize: 12}} scale={latencyScale} domain={latencyScale === 'log' ? ['auto', 'auto'] : [0, 'auto']}>
-                                                <Label value="TTFT (ms)" position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
-                                            </XAxis>
-                                            <YAxis type="number" dataKey="y" stroke="#64748b" tick={{fontSize: 12}}>
-                                                <Label value={xUnit === 'qps' ? "QPS (reqs/sec)" : "Output Token Rate (tokens/sec)"} angle={-90} position="insideLeft" offset={10} fill="#94a3b8" fontSize={12}/>
-                                            </YAxis>
-                                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} itemStyle={{ color: '#e2e8f0' }} labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }} />
-                                            <Legend 
-                                                verticalAlign="top" 
-                                                height={36} 
-                                                content={(props) => {
-                                                    const { payload } = props;
-                                                    return (
-                                                        <div className="flex flex-wrap justify-center gap-4 text-xs mb-4">
-                                                            {payload.map((entry, index) => {
-                                                                const isHidden = hiddenSeries.includes(entry.value);
-                                                                return (
-                                                                    <div 
-                                                                        key={`item-${index}`} 
-                                                                        className={`flex items-center cursor-pointer transition-colors ${isHidden ? 'text-slate-600' : 'text-slate-300 hover:text-white'}`}
-                                                                        onClick={() => handleLegendClick({ value: entry.value })}
-                                                                    >
-                                                                        <div 
-                                                                            className="w-3 h-3 mr-1.5 rounded-sm" 
-                                                                            style={{ 
-                                                                                backgroundColor: isHidden ? '#334155' : entry.color,
-                                                                                opacity: isHidden ? 0.3 : 1
-                                                                            }} 
-                                                                        />
-                                                                        <span>{entry.value}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    );
-                                                }}
-                                            />
-                                            
-                                            {/* Baseline Lines */}
-                                            <Scatter name="Baseline P50" data={hiddenSeries.includes('Baseline P50') ? [] : ttftData.baseline_p50} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1 }} shape="circle" opacity={1.0} />
-                                            <Scatter name="Baseline P90" data={hiddenSeries.includes('Baseline P90') ? [] : ttftData.baseline_p90} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
-                                            <Scatter name="Baseline P99" data={hiddenSeries.includes('Baseline P99') ? [] : ttftData.baseline_p99} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 2 }} shape="circle" opacity={0.3} />
-                                            
-                                            {/* Router Lines */}
-                                            <Scatter name="Router P50" data={hiddenSeries.includes('Router P50') ? [] : ttftData.router_p50} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1 }} shape="circle" opacity={1.0} />
-                                            <Scatter name="Router P90" data={hiddenSeries.includes('Router P90') ? [] : ttftData.router_p90} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
-                                            <Scatter name="Router P99" data={hiddenSeries.includes('Router P99') ? [] : ttftData.router_p99} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 2 }} shape="circle" opacity={0.3} />
-                                        </ScatterChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Chart 1: ITL Percentiles vs QPS */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">ITL Percentiles vs QPS</h3>
+                            <button onClick={() => openZoom(1)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
                         </div>
-
-                        <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl overflow-hidden flex flex-col h-[60rem]">
-                            <div className="px-6 py-4 border-b border-slate-800 bg-slate-800/30 flex justify-between items-center">
-                                <h3 className="text-md font-bold text-white flex justify-between items-center">
-                                    Throughput vs TPOT
-                                    <span className="text-xs font-normal text-slate-500 bg-slate-800 px-2 py-1 rounded ml-2">Lower is better</span>
-                                </h3>
-                                
-                                <div className="flex items-center space-x-3">
-                                    <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                        <button onClick={() => setXUnit('qps')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'qps' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>QPS</button>
-                                        <button onClick={() => setXUnit('output_token_rate')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${xUnit === 'output_token_rate' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Token/s</button>
-                                    </div>
-                                    <div className="flex bg-slate-950 rounded-lg p-1 border border-slate-800">
-                                        <button onClick={() => setItlScale('linear')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${itlScale === 'linear' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Linear</button>
-                                        <button onClick={() => setItlScale('log')} className={`px-2 py-1 text-xs font-semibold rounded-md transition-colors ${itlScale === 'log' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}>Log</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex-1 p-4 flex flex-col justify-between h-[18rem]">
-                                <div className="h-[85%] w-full">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <ScatterChart syncId="prism_analytics" margin={{ top: 15, right: 30, left: 10, bottom: 20 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                            <XAxis type="number" dataKey="x" stroke="#64748b" tick={{fontSize: 12}} scale={itlScale} domain={itlScale === 'log' ? ['auto', 'auto'] : [0, 'auto']}>
-                                                <Label value="TPOT (ms)" position="insideBottom" offset={-10} fill="#94a3b8" fontSize={12}/>
-                                            </XAxis>
-                                            <YAxis type="number" dataKey="y" stroke="#64748b" tick={{fontSize: 12}}>
-                                                <Label value={xUnit === 'qps' ? "QPS (reqs/sec)" : "Output Token Rate (tokens/sec)"} angle={-90} position="insideLeft" offset={10} fill="#94a3b8" fontSize={12}/>
-                                            </YAxis>
-                                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }} itemStyle={{ color: '#e2e8f0' }} labelStyle={{ color: '#94a3b8', fontWeight: 'bold', marginBottom: '4px' }} cursor={{ strokeDasharray: '3 3' }} />
-                                            <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '12px' }} onClick={handleLegendClick} />
-                                            
-                                            <Legend 
-                                                verticalAlign="top" 
-                                                height={36} 
-                                                content={(props) => {
-                                                    const { payload } = props;
-                                                    return (
-                                                        <div className="flex flex-wrap justify-center gap-4 text-xs mb-4">
-                                                            {payload.map((entry, index) => {
-                                                                const isHidden = hiddenSeries.includes(entry.value);
-                                                                return (
-                                                                    <div 
-                                                                        key={`item-${index}`} 
-                                                                        className={`flex items-center cursor-pointer transition-colors ${isHidden ? 'text-slate-600' : 'text-slate-300 hover:text-white'}`}
-                                                                        onClick={() => handleLegendClick({ value: entry.value })}
-                                                                    >
-                                                                        <div 
-                                                                            className="w-3 h-3 mr-1.5 rounded-sm" 
-                                                                            style={{ 
-                                                                                backgroundColor: isHidden ? '#334155' : entry.color,
-                                                                                opacity: isHidden ? 0.3 : 1
-                                                                            }} 
-                                                                        />
-                                                                        <span>{entry.value}</span>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    );
-                                                }}
-                                            />
-                                            
-                                            {/* Baseline Lines */}
-                                            <Scatter name="Baseline P50" data={hiddenSeries.includes('Baseline P50') ? [] : tpotData.baseline_p50} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1 }} shape="circle" opacity={1.0} />
-                                            <Scatter name="Baseline P90" data={hiddenSeries.includes('Baseline P90') ? [] : tpotData.baseline_p90} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
-                                            <Scatter name="Baseline P99" data={hiddenSeries.includes('Baseline P99') ? [] : tpotData.baseline_p99} fill="#94a3b8" line={{ stroke: '#94a3b8', strokeWidth: 2 }} shape="circle" opacity={0.3} />
-                                            
-                                            {/* Router Lines */}
-                                            <Scatter name="Router P50" data={hiddenSeries.includes('Router P50') ? [] : tpotData.router_p50} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1 }} shape="circle" opacity={1.0} />
-                                            <Scatter name="Router P90" data={hiddenSeries.includes('Router P90') ? [] : tpotData.router_p90} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 1.5 }} shape="circle" opacity={0.6} />
-                                            <Scatter name="Router P99" data={hiddenSeries.includes('Router P99') ? [] : tpotData.router_p99} fill="#10b981" line={{ stroke: '#10b981', strokeWidth: 2 }} shape="circle" opacity={0.3} />
-                                        </ScatterChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="ITL (ms)" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    {!hiddenSeries.includes('Baseline P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p50" name="Baseline P50" stroke="#fb923c" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p90" name="Baseline P90" stroke="#f97316" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p99" name="Baseline P99" stroke="#ea580c" strokeWidth={2} />}
+                                    {!hiddenSeries.includes('Router P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p50" name="Optimal P50" stroke="#38bdf8" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p90" name="Optimal P90" stroke="#06b6d4" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p99" name="Optimal P99" stroke="#0891b2" strokeWidth={2} />}
+                                </LineChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
+
+                    {/* Chart 2: TTFT Percentiles vs QPS */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">TTFT Percentiles vs QPS</h3>
+                            <button onClick={() => openZoom(2)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TTFT (ms)" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    {!hiddenSeries.includes('Baseline P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p50" name="Baseline P50" stroke="#fb923c" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p90" name="Baseline P90" stroke="#f97316" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p99" name="Baseline P99" stroke="#ea580c" strokeWidth={2} />}
+                                    {!hiddenSeries.includes('Router P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p50" name="Optimal P50" stroke="#38bdf8" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p90" name="Optimal P90" stroke="#06b6d4" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p99" name="Optimal P99" stroke="#0891b2" strokeWidth={2} />}
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Chart 3: Throughput vs QPS */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">Throughput vs QPS</h3>
+                            <button onClick={() => openZoom(3)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="output_token_rate" name="Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Chart 4: Input tokens/sec vs QPS */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">Input tokens/sec vs QPS</h3>
+                            <button onClick={() => openZoom(4)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Input Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="input_token_rate" name="Input Rate" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Chart 5: Output tokens/sec vs QPS */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">Output tokens/sec vs QPS</h3>
+                            <button onClick={() => openZoom(5)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Output Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="output_token_rate" name="Output Rate" stroke="#ec4899" strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Chart 6: Total tokens/sec vs QPS */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">Total tokens/sec vs QPS</h3>
+                            <button onClick={() => openZoom(6)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Total Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="total_token_rate" name="Total Rate" stroke="#eab308" strokeWidth={2} dot={{ r: 3 }} />
+                                </LineChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Chart 7: Throughput vs TTFT */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">Throughput vs TTFT</h3>
+                            <button onClick={() => openZoom(7)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis type="number" dataKey="x" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TTFT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis type="number" dataKey="y" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    {!hiddenSeries.includes('Baseline P50') && <Scatter style={{ cursor: 'pointer' }} name="Baseline P50" data={ttftData.baseline_p50} fill="#ea580c" />}
+                                    {!hiddenSeries.includes('Router P50') && <Scatter style={{ cursor: 'pointer' }} name="Optimal P50" data={ttftData.router_p50} fill="#0891b2" />}
+                                </ScatterChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Chart 8: Throughput vs TPOT */}
+                    <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
+                        <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
+                            <h3 className="text-sm font-bold text-white">Throughput vs TPOT</h3>
+                            <button onClick={() => openZoom(8)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
+                                <Maximize2 className="w-4 h-4 text-cyan-400" />
+                            </button>
+                        </div>
+                        <div className="flex-1 p-4">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                    <XAxis type="number" dataKey="x" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TPOT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    </XAxis>
+                                    <YAxis type="number" dataKey="y" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    </YAxis>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                    {!hiddenSeries.includes('Baseline P50') && <Scatter style={{ cursor: 'pointer' }} name="Baseline P50" data={tpotData.baseline_p50} fill="#ea580c" />}
+                                    {!hiddenSeries.includes('Router P50') && <Scatter style={{ cursor: 'pointer' }} name="Optimal P50" data={tpotData.router_p50} fill="#0891b2" />}
+                                </ScatterChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
                 
                 {/* Summary Metrics Table */}
-                <div className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl p-6 flex flex-col h-[28rem]">
+                <div id="summary-table" className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl p-6 flex flex-col h-[28rem]">
                     <div className="flex justify-between items-center mb-6">
                         <div>
                             <h3 className="text-md font-bold text-white">Summary metrics comparison</h3>
-                            <span className="text-xs text-slate-500">Comparing standard Kubernetes service against Optimal (Prompt routing) workloads side-by-side. Replaces static markdown matrices.</span>
+                            <span className="text-xs text-slate-500">Comparing Standard Kubernetes service (Baseline) against Optimal (Prompt routing) workloads side-by-side. Replaces static markdown matrices.</span>
                         </div>
                     </div>
                     <div className="flex-1 overflow-auto rounded-lg border border-slate-800">
@@ -733,8 +906,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     <Zap className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-white">Reproduce deployment</h3>
-                                    <p className="text-xs text-slate-400 mt-0.5">Apply this configuration directly to your cluster.</p>
+                                    <h3 className="text-lg font-bold text-white">Reproducibility Instructions</h3>
+                                    <p className="text-xs text-slate-400 mt-0.5">Execute this exact benchmark profile on your cluster.</p>
                                 </div>
                             </div>
                             <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-700 transition-colors">
@@ -743,43 +916,39 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                         </header>
 
                         <div className="p-6">
-                            
-                            <div className="mb-6 relative">
-                                <div className="flex justify-between items-end mb-2">
-                                    <label className="text-sm font-semibold text-slate-300">Target QPS Bound</label>
-                                    <span className="text-emerald-400 font-mono text-xs bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-800">{targetQps} QPS</span>
-                                </div>
-                                <input 
-                                    type="range" 
-                                    min="1" 
-                                    max="20" 
-                                    value={targetQps} 
-                                    onChange={(e) => setTargetQps(e.target.value)}
-                                    className="w-full h-1.5 bg-slate-700 rounded-lg outline-none appearance-none cursor-pointer accent-emerald-500"
-                                />
-                            </div>
-
                             <div className="mb-6">
-                                <h4 className="text-sm font-semibold text-slate-300 mb-2">Helm upgrade command generated</h4>
+                                <h4 className="text-sm font-semibold text-slate-300 mb-2">1. Apply Benchmark Definitions</h4>
+                                <p className="text-xs text-slate-400 mb-3">Load the specific Kubernetes evaluation service definitions onto your target node.</p>
                                 <div className="bg-slate-950 border border-emerald-500/30 rounded-lg p-4 relative group">
                                     <pre className="text-emerald-400 font-mono text-sm whitespace-pre-wrap leading-relaxed">
-                                        helm upgrade prism-router ./chart \
-                                        <br/>  --set router.policy=intelligent_gateway \
-                                        <br/>  <span className="bg-emerald-500/20 px-1 py-0.5 rounded transition-all">--set target_qps={targetQps}</span>
+                                        kubectl apply -f https://llm-d.ai/benchmarks/qwen.yaml
                                     </pre>
-                                    <button onClick={handleCopyHelm} className="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition-colors shadow-sm flex items-center">
+                                    <button onClick={() => {
+                                        navigator.clipboard.writeText('kubectl apply -f https://llm-d.ai/benchmarks/qwen.yaml');
+                                        setCopied(true);
+                                        setTimeout(() => setCopied(false), 2000);
+                                    }} className="absolute top-3 right-3 p-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md border border-slate-700 transition-colors shadow-sm flex items-center">
                                         {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                                     </button>
                                 </div>
                                 {copied && <p className="text-xs text-emerald-500 mt-2 font-medium animate-pulse">Copied to clipboard!</p>}
                             </div>
 
+                            <div className="mb-2">
+                                <h4 className="text-sm font-semibold text-slate-300 mb-1">2. Reference Documentation</h4>
+                                <p className="text-xs text-slate-400">
+                                    For deep architectural specifications, view the full instructions directly on our repository:
+                                </p>
+                                <a href="https://github.com/llm-d/llm-d/blob/main/guides/inference-scheduling/README.md#benchmarking" target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center text-xs font-bold text-cyan-400 hover:underline">
+                                    View complete guide <ExternalLink className="w-3.5 h-3.5 ml-1" />
+                                </a>
+                            </div>
                         </div>
+
                         <div className="px-6 py-4 bg-slate-900 border-t border-slate-800 flex justify-end">
-                            <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium text-sm transition-colors border border-slate-700 mr-3">Cancel</button>
-                            <a href="#" className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium text-sm transition-colors shadow-sm flex items-center">
-                                Deploy now <ExternalLink className="w-4 h-4 ml-2" />
-                            </a>
+                            <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-xs transition-colors border border-slate-700">
+                                Close
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -849,8 +1018,299 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     </div>
                 </div>
             )}
+            {/* Full-Screen Zoom Modal */}
+            {zoomedChart !== null && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[1000] flex items-center justify-center p-8 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col w-full max-w-6xl h-[80vh] overflow-hidden backdrop-blur-sm relative">
+                        {(() => {
+                            const derivedZoomData = additionalChartData
+                                .map(item => {
+                                    const chipDivisor = zoomPerChip ? 4 : 1;
+                                    let yVal = item.output_token_rate || 0;
+                                    const inTokens = item.input_token_rate || item.qps * 512;
+                                    if (zoomYAxis === 'input') yVal = inTokens;
+                                    else if (zoomYAxis === 'total') yVal = inTokens + (item.output_token_rate || 0);
+                                    else if (zoomYAxis === 'qps') yVal = item.qps;
+                                    else if (zoomYAxis === 'cost') {
+                                        const rates = { spot: 2.89, on_demand: 9.89, cud_1y: 6.54, cud_3y: 4.22 };
+                                        yVal = ((yVal * rates[zoomCostMode]) / 10000);
+                                    }
+                                    if (zoomYAxis !== 'cost' && zoomPerChip) {
+                                        yVal = yVal / chipDivisor;
+                                    }
+                                    let xVal = item.qps;
+                                    const tpotVal = item.router_tpot_p50 || item.baseline_tpot_p50 || 20;
+                                    const ttftVal = item.router_ttft_p50 || item.baseline_ttft_p50 || 250;
+                                    const itlVal = item.router_itl_p50 || item.baseline_itl_p50 || 25;
+                                    if (zoomXAxis === 'tpot') xVal = tpotVal;
+                                    else if (zoomXAxis === 'ntpot') xVal = tpotVal * 0.85;
+                                    else if (zoomXAxis === 'ttft') xVal = ttftVal;
+                                    else if (zoomXAxis === 'itl') xVal = itlVal;
+                                    else if (zoomXAxis === 'tokens_sec') xVal = item.output_token_rate || 1000;
+                                    else if (zoomXAxis === 'e2e') xVal = ttftVal + tpotVal * 128;
+                                    else if (zoomXAxis === 'quality') xVal = 0.98;
+                                    return {
+                                        ...item,
+                                        dynamic_x: parseFloat(xVal.toFixed(4)),
+                                        dynamic_y: parseFloat(yVal.toFixed(4))
+                                    };
+                                })
+                                .filter(d => d.dynamic_x !== null && !isNaN(d.dynamic_x) && d.dynamic_y !== null && !isNaN(d.dynamic_y))
+                                .sort((a, b) => a.dynamic_x - b.dynamic_x);
+
+                            const dataMax = derivedZoomData.length > 0 ? Math.max(...derivedZoomData.map(d => d.dynamic_x)) : 100;
+                            const step = Math.max(0.01, dataMax / 100);
+                            const currentMax = zoomXMax === Infinity ? dataMax : zoomXMax;
+                            const visibleZoomData = derivedZoomData.filter(d => d.dynamic_x <= currentMax);
+
+                            const xLabels = {
+                                tpot: 'TPOT (ms)',
+                                ntpot: 'Normalized TPOT (ms)',
+                                ttft: 'Mean TTFT (ms)',
+                                itl: 'Inter-Token Latency (ms)',
+                                tokens_sec: 'Tokens/sec',
+                                e2e: 'E2E Latency (ms)',
+                                quality: 'Quality Score',
+                                qps: 'Queries Per Second'
+                            };
+
+                            const yLabels = {
+                                output: 'Output Tokens/sec',
+                                input: 'Input Tokens/sec',
+                                total: 'Total Tokens/sec',
+                                qps: 'Queries Per Second',
+                                cost: 'Cost ($/1M Tokens)'
+                            };
+
+                            const hwPalettes = {
+                                'H100': ['#3b82f6', '#60a5fa', '#93c5fd', '#2563eb', '#1d4ed8'],
+                                'TPU v6': ['#8b5cf6', '#a78bfa', '#c4b5fd', '#7c3aed', '#6d28d9'],
+                                'TPU v5': ['#6366f1', '#818cf8', '#a5b4fc', '#4f46e5', '#4338ca'],
+                                'L4': ['#f59e0b', '#fbbf24', '#fcd34d', '#d97706', '#b45309'],
+                                'A100': ['#10b981', '#34d399', '#6ee7b7', '#059669', '#047857'],
+                            };
+                            const defaultColors = ['#38bdf8', '#f472b6', '#34d399', '#fbbf24', '#a78bfa'];
+                            
+                            const groups = {};
+                            visibleZoomData.forEach(pt => {
+                                let key = 'Other';
+                                if (zoomColorMode === 'hardware') {
+                                    key = pt.hardware || 'H100';
+                                } else if (zoomColorMode === 'node_config') {
+                                    key = `Nodes: ${pt.num_nodes || 4}`;
+                                } else if (zoomColorMode === 'model') {
+                                    key = pt.model_name || 'Model';
+                                }
+                                if (!groups[key]) groups[key] = [];
+                                groups[key].push(pt);
+                            });
+
+                            return (
+                                <div className="flex flex-col w-full h-full">
+                                    <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                            <div className="flex flex-col">
+                                <h3 className="text-lg font-bold text-white">
+                                    {zoomedChart === 1 && "ITL Percentiles vs QPS"}
+                                    {zoomedChart === 2 && "TTFT Percentiles vs QPS"}
+                                    {zoomedChart === 3 && "Throughput vs QPS"}
+                                    {zoomedChart === 4 && "Input tokens/sec vs QPS"}
+                                    {zoomedChart === 5 && "Output tokens/sec vs QPS"}
+                                    {zoomedChart === 6 && "Total tokens/sec vs QPS"}
+                                    {zoomedChart === 7 && "Throughput vs TTFT"}
+                                    {zoomedChart === 8 && "Throughput vs TPOT"}
+                                </h3>
+                                <span className="text-xs text-slate-400">Expanded Interactive View</span>
+                            </div>
+                            <button onClick={() => setZoomedChart(null)} className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all border border-slate-700/60 flex items-center gap-2">
+                                <span className="text-xs font-semibold">Close View</span>
+                            </button>
+                        </div>
+
+                        {/* Expert Mode X/Y Axis Selectors Bar */}
+                        <div className="bg-slate-800/40 border-b border-slate-700/50 px-6 py-3 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest w-14">X-Axis:</span>
+                                    <div className="flex flex-wrap bg-slate-900/50 border border-slate-700/50 rounded-lg p-0.5 gap-0.5">
+                                        <button onClick={() => setZoomXAxis('tpot')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomXAxis === 'tpot' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>TPOT</button>
+                                        <button onClick={() => setZoomXAxis('ntpot')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomXAxis === 'ntpot' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>NTPOT</button>
+                                        <button onClick={() => setZoomXAxis('ttft')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomXAxis === 'ttft' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>TTFT</button>
+                                        <button onClick={() => setZoomXAxis('itl')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomXAxis === 'itl' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>ITL</button>
+                                        <button onClick={() => setZoomXAxis('tokens_sec')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomXAxis === 'tokens_sec' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Tokens/sec</button>
+                                        <button onClick={() => setZoomXAxis('e2e')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomXAxis === 'e2e' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>E2E Latency</button>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest w-14">Y-Axis:</span>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="flex bg-slate-900/50 border border-slate-700/50 rounded-lg p-0.5 gap-0.5">
+                                            <button onClick={() => setZoomYAxis('output')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomYAxis === 'output' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Output</button>
+                                            <button onClick={() => setZoomYAxis('input')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomYAxis === 'input' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Input</button>
+                                            <button onClick={() => setZoomYAxis('total')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomYAxis === 'total' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Total</button>
+                                            <button onClick={() => setZoomYAxis('qps')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomYAxis === 'qps' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>QPS</button>
+                                            <button onClick={() => setZoomYAxis('cost')} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomYAxis === 'cost' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Cost</button>
+                                        </div>
+                                        {zoomYAxis === 'cost' && (
+                                            <select value={zoomCostMode} onChange={(e) => setZoomCostMode(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-lg text-[10px] px-2 py-1 text-slate-300 outline-none">
+                                                <option value="spot">Spot</option>
+                                                <option value="on_demand">On Demand</option>
+                                                <option value="cud_1y">1-Year CUD</option>
+                                                <option value="cud_3y">3-Year CUD</option>
+                                            </select>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 md:items-end w-full md:w-auto">
+                                <div className="flex flex-wrap items-center gap-3 bg-slate-900/30 border border-slate-700/40 px-3 py-1.5 rounded-lg">
+                                    <div className="flex items-center gap-1.5 border-r border-slate-700/60 pr-3">
+                                        <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Group By:</span>
+                                        <select value={zoomColorMode} onChange={(e) => setZoomColorMode(e.target.value)} className="bg-slate-900 border border-slate-700 rounded text-[10px] px-2 py-0.5 text-slate-300 outline-none">
+                                            <option value="hardware">Hardware</option>
+                                            <option value="node_config">Node Config</option>
+                                            <option value="model">Model</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-y-2 gap-x-3">
+                                        {Object.keys(groups).map((k) => {
+                                            const palette = hwPalettes[k] || defaultColors;
+                                            return (
+                                                <div key={k} className="flex items-center gap-1.5">
+                                                    <div className="flex rounded overflow-hidden shadow-sm shrink-0">
+                                                        {palette.slice(0, 3).map(c => (
+                                                            <div key={c} className="w-2 h-2" style={{ backgroundColor: c }} />
+                                                        ))}
+                                                    </div>
+                                                    <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-tight max-w-[140px] truncate" title={k}>{k}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-4">
+                                    <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-700/50 rounded-lg p-0.5">
+                                        <button onClick={() => setZoomLogScale(!zoomLogScale)} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomLogScale ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Log Scale</button>
+                                        <div className="h-3 w-px bg-slate-700" />
+                                        <button onClick={() => setZoomPerChip(!zoomPerChip)} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomPerChip ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} title="Normalize per Chip">Per Chip</button>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-700/50 px-3 py-1 rounded-lg">
+                                        <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Cap:</span>
+                                        <input type="range" min={0} max={dataMax} step={step} value={currentMax} onChange={(e) => { const val = parseFloat(e.target.value); if (val >= dataMax * 0.99) setZoomXMax(Infinity); else setZoomXMax(val); }} className="w-28 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-400" />
+                                        <input type="number" value={zoomXMax === Infinity ? '' : zoomXMax} placeholder={dataMax.toFixed(1)} onChange={(e) => { const val = parseFloat(e.target.value); if (!val || isNaN(val)) setZoomXMax(Infinity); else setZoomXMax(val); }} className="w-16 bg-transparent text-[10px] text-slate-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 rounded px-1 text-right font-mono font-bold transition-all" />
+                                        <span className="text-[9px] text-slate-500 font-mono font-bold">ms</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                                        <div className="flex-1 min-h-[400px]">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <LineChart data={visibleZoomData} margin={{ top: 10, right: 20, left: 20, bottom: 45 }} className="cursor-pointer" style={{ cursor: 'pointer' }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                            <XAxis 
+                                                type="number"
+                                                dataKey="dynamic_x" 
+                                                scale={zoomLogScale ? 'log' : 'auto'} 
+                                                domain={zoomLogScale ? [1, 'auto'] : ['auto', 'auto']} 
+                                                stroke="#64748b" 
+                                                tick={{ fontSize: 12 }}
+                                            >
+                                                <Label value={xLabels[zoomXAxis] || 'Queries Per Second'} position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                            </XAxis>
+                                            <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
+                                                <Label value={yLabels[zoomYAxis] || 'Tokens/sec'} angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                            </YAxis>
+                                            <Tooltip 
+                                                cursor={{ strokeDasharray: '3 3' }} 
+                                                trigger="hover" 
+                                                content={({ active, payload }) => {
+                                                    if (active && payload && payload.length) {
+                                                        const pt = payload[0].payload;
+                                                        return (
+                                                            <div className="bg-slate-900/95 border border-slate-700/50 rounded-lg shadow-xl p-3 min-w-[200px] backdrop-blur-md text-slate-100 z-[100]">
+                                                                <div className="border-b border-slate-200 dark:border-slate-700/60 pb-1.5 mb-1.5">
+                                                                    <div className="text-[10px] text-orange-500 font-semibold uppercase tracking-wider leading-none mb-1">
+                                                                        Gateway Simulation
+                                                                    </div>
+                                                                    <div className="text-[11px] font-mono text-slate-400 leading-tight">
+                                                                        4x NVIDIA H100 • Seq: 1024/128
+                                                                    </div>
+                                                                    <div className="text-xs font-bold text-white mt-1">
+                                                                        QPS: {pt.qps}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center justify-between gap-4">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <div className="w-2 h-2 rounded-full shrink-0 bg-cyan-400" />
+                                                                            <span className="text-[11px] text-slate-300">{xLabels[zoomXAxis] || 'X'}</span>
+                                                                        </div>
+                                                                        <span className="text-[11px] font-mono font-bold text-white">{pt.dynamic_x}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between gap-4">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <div className="w-2 h-2 rounded-full shrink-0 bg-emerald-400" />
+                                                                            <span className="text-[11px] text-slate-300">{yLabels[zoomYAxis] || 'Y'}</span>
+                                                                        </div>
+                                                                        <span className="text-[11px] font-mono font-bold text-white">{pt.dynamic_y}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                }} 
+                                            />
+                                            <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
+                                            {(() => {
+                                                if (hiddenSeries.includes('Baseline P50')) return null;
+                                                
+                                                const groups = {};
+                                                visibleZoomData.forEach(pt => {
+                                                    let key = 'other';
+                                                    if (zoomColorMode === 'hardware') {
+                                                        key = pt.hardware || 'H100';
+                                                    } else if (zoomColorMode === 'node_config') {
+                                                        key = `Nodes: ${pt.num_nodes || 4}`;
+                                                    } else if (zoomColorMode === 'model') {
+                                                        key = pt.model_name || 'Model';
+                                                    }
+                                                    if (!groups[key]) groups[key] = [];
+                                                    groups[key].push(pt);
+                                                });
+
+                                                const colors = ['#38bdf8', '#f472b6', '#34d399', '#fbbf24', '#a78bfa'];
+                                                
+                                                return Object.keys(groups).map((k, idx) => (
+                                                    <Line 
+                                                        key={k}
+                                                        data={groups[k]}
+                                                        type="monotone" 
+                                                        dataKey="dynamic_y" 
+                                                        name={k} 
+                                                        stroke={colors[idx % colors.length]} 
+                                                        strokeWidth={2} 
+                                                        activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
+                                                    />
+                                                ));
+                                            })()}
+
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default Milestone1Dashboard;
+
