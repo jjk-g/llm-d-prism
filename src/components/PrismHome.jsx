@@ -11,17 +11,14 @@ const PrismHome = ({ onNavigate }) => {
             <div className="max-w-6xl w-full z-10 flex flex-col items-center">
                 {/* Hero Header */}
                 <header className="mb-20 text-center relative pt-12">
-                     <span className="inline-block px-3 py-1 mb-6 text-xs font-semibold tracking-wider text-cyan-400 uppercase bg-cyan-500/10 rounded-full border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.2)]">
-                            Discovery Portal
-                     </span>
-                    <div className="flex items-center justify-center mb-6 space-x-3">
-                        <Activity className="h-14 w-14 text-cyan-400 drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
-                        <h1 className="text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600">
+                    <div className="flex items-center justify-center mb-2 space-x-3">
+                        <img src="/favicon.png" alt="Prism Logo" className="h-8 w-8 object-contain drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
+                        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600">
                             Prism
                         </h1>
                     </div>
                     <p className="text-xl text-slate-400 max-w-3xl leading-relaxed font-light tracking-wide">
-                        The ultimate AI inference benchmarking and optimization engine. Discover, compare, and reproduce standard well-lit paths for inference scheduling.
+                        Performance analysis for distributed inference systems.
                     </p>
                 </header>
 

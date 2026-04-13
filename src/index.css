@@ -15,14 +15,61 @@
 
 @import "tailwindcss";
 
+@theme {
+  --color-theme-bg: var(--bg-primary);
+  --color-theme-card: var(--bg-card);
+  --color-theme-border: var(--border-color);
+  --color-theme-text: var(--text-primary);
+  --color-theme-muted: var(--text-muted);
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 @layer base {
+  :root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    
+    --brand-accent: #059669;
+    --brand-accent-hover: #047857;
+    --brand-accent-bg: rgba(16, 185, 129, 0.1);
+    
+    --chart-grid: #cbd5e1;
+    --chart-axis: #475569;
+  }
+
+  .dark {
+    --bg-primary: #020617;
+    --bg-secondary: #0f172a;
+    --bg-card: #090d16;
+    --border-color: #1e293b;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    --brand-accent: #34d399;
+    --brand-accent-hover: #10b981;
+    --brand-accent-bg: rgba(52, 211, 153, 0.15);
+    
+    --chart-grid: #1e293b;
+    --chart-axis: #64748b;
+  }
+
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
   button, a, select, [role="button"] {
     cursor: pointer !important;
   }
   
-  /* Force a consistent hand pointer on all Recharts data dots, scatter nodes, and active legend layers */
   .recharts-dot, 
   .recharts-active-dot,
   .recharts-symbols,

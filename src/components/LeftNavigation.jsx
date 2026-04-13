@@ -6,9 +6,11 @@ import {
     Compass, 
     Database, 
     Lightbulb, 
-    Layers, 
-    PanelLeftClose,
-    PanelLeft
+    Layers,
+    Split,
+    Network,
+    TrendingUp,
+    FileCode
 } from 'lucide-react';
 
 const MENU_GROUPS = [
@@ -21,16 +23,17 @@ const MENU_GROUPS = [
         title: "Well-Lit Analysis Paths",
         items: [
             { id: 'inference-scheduling', label: 'Inference Scheduling', icon: Cpu, view: 'inference-scheduling' },
-            { id: 'pd-disaggregation', label: 'P/D Disaggregation', icon: Layers, view: 'pd-disaggregation', disabled: true },
-            { id: 'wide-ep', label: 'Wide-EP', icon: Database, view: 'wide-ep', disabled: true }
+            { id: 'pd-disaggregation', label: 'P/D Disaggregation', icon: Split, view: 'pd-disaggregation', disabled: true },
+            { id: 'wide-ep', label: 'Wide-EP', icon: Network, view: 'wide-ep', disabled: true },
+            { id: 'benchmark-browser', label: 'Benchmark Browser', icon: BarChart2, view: 'advanced' }
         ]
     },
     {
         title: "Utility Suite",
         items: [
             { id: 'guided-analysis', label: 'Guided Analysis', icon: Compass, view: 'guided-analysis', disabled: true },
-            { id: 'value-analysis', label: 'Value Analysis', icon: Layers, view: 'value-analysis', disabled: true },
-            { id: 'schema-browser', label: 'Schema Browser', icon: Database, view: 'schema-browser', disabled: true },
+            { id: 'value-analysis', label: 'Value Analysis', icon: TrendingUp, view: 'value-analysis', disabled: true },
+            { id: 'schema-browser', label: 'Schema Browser', icon: FileCode, view: 'schema-browser', disabled: true },
             { id: 'model-intelligence', label: 'Model Intelligence', icon: Lightbulb, view: 'model-intelligence', disabled: true }
         ]
     }
@@ -56,23 +59,10 @@ export default function LeftNavigation({ currentView, onNavigate }) {
     };
 
     return (
-        <aside className={`fixed top-4 left-4 h-[calc(100vh-2rem)] flex flex-col border border-slate-800/80 bg-slate-900/80 backdrop-blur-xl rounded-2xl transition-all duration-300 z-50 shadow-2xl overflow-hidden ${isExpanded ? 'w-80' : 'w-20'}`}>
-            {/* Header Section without Toggle */}
-            <div className="h-16 flex items-center justify-between px-4 border-b border-slate-800/60 shrink-0">
-                <div className="flex items-center gap-3 overflow-hidden">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-cyan-400 flex items-center justify-center text-white font-black shadow-md shrink-0">
-                        P
-                    </div>
-                    {isExpanded && (
-                        <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600 tracking-wide text-xl whitespace-nowrap">
-                            Prism
-                        </span>
-                    )}
-                </div>
-            </div>
+        <aside className={`fixed top-20 left-4 h-[calc(100vh-6rem)] flex flex-col border border-slate-800/80 bg-slate-900/80 backdrop-blur-xl rounded-2xl transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'w-80' : 'w-20'}`}>
 
             {/* Navigation Items */}
-            <div className="flex-1 overflow-y-auto py-6 flex flex-col gap-8 px-3">
+            <div className="flex-1 overflow-y-auto overflow-x-visible py-6 flex flex-col gap-8 px-3">
                 {MENU_GROUPS.map((group, gIdx) => (
                     <div key={gIdx} className="flex flex-col gap-1">
                         {/* Group Header with Stable Vertical Footprint */}
@@ -90,13 +80,14 @@ export default function LeftNavigation({ currentView, onNavigate }) {
                                 <button
                                     key={item.id}
                                     onClick={() => !item.disabled && handleItemClick(item.view)}
-                                    disabled={item.disabled}
-                                    className={`group relative flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all cursor-pointer w-full text-left font-normal ${
+                                    aria-disabled={item.disabled}
+                                    title={!isExpanded ? item.label : undefined}
+                                    className={`group relative flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all w-full text-left font-normal ${
                                         isActive 
                                             ? 'bg-cyan-600/15 text-cyan-300' 
                                             : item.disabled 
                                                 ? 'text-slate-400 opacity-80 cursor-not-allowed' 
-                                                : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+                                                : 'text-slate-300 hover:bg-slate-800/50 hover:text-white cursor-pointer'
                                     }`}
                                 >
                                     {/* Active Side Indicator */}
@@ -124,7 +115,7 @@ export default function LeftNavigation({ currentView, onNavigate }) {
 
                                     {/* Tooltip when Collapsed */}
                                     {!isExpanded && (
-                                        <div className="absolute left-16 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-800 border border-slate-700/80 text-white text-xs font-medium rounded-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all shadow-xl z-50 whitespace-nowrap flex items-center gap-2">
+                                        <div className="absolute left-16 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-slate-800 border border-slate-700/80 text-white text-xs font-medium rounded-lg invisible group-hover:visible shadow-xl z-[99999] whitespace-nowrap flex items-center gap-2">
                                             {item.label}
                                             {item.disabled && <span className="text-[10px] text-slate-400 font-mono">(Coming Soon)</span>}
                                         </div>
