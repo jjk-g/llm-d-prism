@@ -604,12 +604,22 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
             
             {/* Top Navigation Bar - Fully Fixed for 100% Scroll Independence */}
             <header className="w-full h-16 border-b border-slate-800 flex justify-between items-center px-6 bg-slate-900 fixed top-0 left-0 right-0 z-[9999]">
-                <div className="flex items-center space-x-4">
-                    <button onClick={onNavigateBack} className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
-                        <ArrowLeft className="h-5 w-5" />
-                    </button>
+                <div className="flex items-center gap-4">
+                    {onNavigateBack && (
+                        <button onClick={onNavigateBack} className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                            <ArrowLeft className="h-5 w-5" />
+                        </button>
+                    )}
+                    
+                    {/* Compact Prism Logo & Name */}
+                    <div className="flex items-center gap-2.5 border-r border-slate-500 pr-4">
+                        <img src="/favicon.png" alt="Prism Logo" className="h-6 w-6 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                        <span className="text-lg font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600">
+                            Prism
+                        </span>
+                    </div>
+
                     <div className="flex items-center">
-                        <Zap className="h-5 w-5 text-emerald-500 mr-2" />
                         <h1 className="text-lg font-bold text-white tracking-wide">Inference scheduling</h1>
                         <span className="ml-3 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                             Guided mode
