@@ -694,11 +694,11 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                 <div className="flex flex-col gap-2.5">
                                     <div>
                                         <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Machine Type</span>
-                                        <span className="font-mono font-bold text-white truncate block text-xs">g2-standard-96</span>
+                                        <span className="font-mono font-bold text-white truncate block text-xs">{reportsMeta?.machine_type || "g2-standard-96"}</span>
                                     </div>
                                     <div>
                                         <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Accelerator</span>
-                                        <span className="font-mono font-bold text-white truncate block text-xs">NVIDIA L4</span>
+                                        <span className="font-mono font-bold text-white truncate block text-xs">{reportsMeta?.hardware || "NVIDIA L4"}</span>
                                     </div>
                                     <div>
                                         <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Topology</span>
@@ -839,12 +839,12 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                    {!hiddenSeries.includes('Baseline P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
-                                    {!hiddenSeries.includes('Router P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
+                                    {!hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
+                                    {!hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -870,12 +870,12 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                    {!hiddenSeries.includes('Baseline P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
-                                    {!hiddenSeries.includes('Router P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P90') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P99') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
+                                    {!hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
+                                    {!hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
+                                    {!hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1015,8 +1015,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_tpot_p50" name="Standard Kubernetes TPOT P50" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_tpot_p50" name="Prefix-aware caching TPOT P50" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_tpot_p50" name="Standard Kubernetes TPOT P50" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_tpot_p50" name="Prefix-aware caching TPOT P50" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1042,8 +1042,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_tpot_p99" name="Standard Kubernetes TPOT P99" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_tpot_p99" name="Prefix-aware caching TPOT P99" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_tpot_p99" name="Standard Kubernetes TPOT P99" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_tpot_p99" name="Prefix-aware caching TPOT P99" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1523,8 +1523,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                         <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                                         <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
                                                         
-                                                        {!hiddenSeries.includes('Baseline P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? "baseline_itl_p50" : zoomedChart === 2 ? "baseline_ttft_p50" : zoomedChart === 7 ? "baseline_tpot_p50" : "baseline_tpot_p99"} name={zoomedChart === 8 ? "Standard Kubernetes TPOT P99" : "Standard Kubernetes TPOT P50"} stroke="#fb923c" strokeWidth={2} />}
-                                                        {!hiddenSeries.includes('Router P50') && <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? "router_itl_p50" : zoomedChart === 2 ? "router_ttft_p50" : zoomedChart === 7 ? "router_tpot_p50" : "router_tpot_p99"} name={zoomedChart === 8 ? "Prefix-aware caching TPOT P99" : "Prefix-aware caching TPOT P50"} stroke="#38bdf8" strokeWidth={2} />}
+                                                        {!hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? "baseline_itl_p50" : zoomedChart === 2 ? "baseline_ttft_p50" : zoomedChart === 7 ? "baseline_tpot_p50" : "baseline_tpot_p99"} name={zoomedChart === 8 ? "Standard Kubernetes TPOT P99" : "Standard Kubernetes TPOT P50"} stroke="#fb923c" strokeWidth={2} />}
+                                                        {!hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? "router_itl_p50" : zoomedChart === 2 ? "router_ttft_p50" : zoomedChart === 7 ? "router_tpot_p50" : "router_tpot_p99"} name={zoomedChart === 8 ? "Prefix-aware caching TPOT P99" : "Prefix-aware caching TPOT P50"} stroke="#38bdf8" strokeWidth={2} />}
                                                     </LineChart>
                                                 ) : (
                                                     <LineChart data={visibleZoomData} margin={{ top: 10, right: 20, left: 20, bottom: 45 }}>
@@ -1572,6 +1572,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                                 <Line 
                                                                     key={k}
                                                                     data={groups[k]}
+                                                                    connectNulls={true}
                                                                     type="monotone" 
                                                                     dataKey="dynamic_y" 
                                                                     name={k} 

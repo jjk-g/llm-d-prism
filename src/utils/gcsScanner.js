@@ -169,7 +169,7 @@ export const parseFromUri = (filePath) => {
     };
 };
 
-const INFERENCE_SCHEDULING_BUCKET = 'llm-d-benchmarks-internal';
+const INFERENCE_SCHEDULING_BUCKET = 'llm-d-benchmarks';
 
 export const scanInferenceScheduling = async () => {
     try {
@@ -215,6 +215,7 @@ export const parseInferenceSchedulingReport = (content, filePath) => {
         if (!doc) return null;
 
         const aggregate = doc.results?.request_performance?.aggregate || {};
+        const config = doc.config || {};
         const latency = aggregate.latency || {};
         const throughput = aggregate.throughput || {};
 
@@ -223,9 +224,10 @@ export const parseInferenceSchedulingReport = (content, filePath) => {
         const itl = latency.inter_token_latency || {};
 
         const parts = filePath.split('/');
-        const scenario = parts[1] || 'Unknown';
-        const model = parts[2] || 'Unknown';
-        const hardware = parts[3] || 'Unknown';
+        const scenario = config.scenario || parts[1] || 'Unknown';
+        const model = config.model || parts[2] || 'Unknown';
+        const hardware = config.hardware || parts[3] || 'Unknown';
+        const machine_type = config.machine_type || 'Unknown';
         const runId = parts[4] || 'Unknown';
 
         return {
@@ -234,6 +236,7 @@ export const parseInferenceSchedulingReport = (content, filePath) => {
             scenario,
             model,
             hardware,
+            machine_type,
             runId,
             qps: throughput.request_rate?.mean || 0,
             output_token_rate: throughput.output_token_rate?.mean || 0,
