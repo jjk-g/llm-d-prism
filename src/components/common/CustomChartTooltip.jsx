@@ -40,6 +40,10 @@ export const CustomChartTooltip = ({ active, payload, label, xLabel, yLabel, cos
                      const osl = d.workload?.output_tokens ?? d.osl ?? meta.output_seq_len;
                      const seqLen = (isl && osl) ? `${isl} / ${osl}` : null;
                      const source = d.source_info?.type || d.source;
+                     const qps = d.qps ?? meta.qps ?? d.workload?.qps;
+                     const isInterpolated = !!(d.interpolated || meta.interpolated);
+                     const ttft = d.ttft ?? meta.ttft ?? (d.metrics?.ttft?.value || null);
+                     const itl = d.itl ?? meta.itl ?? (d.metrics?.itl?.value || null);
                      
                      // Format X-Value logic
                      const formattedXValue = (() => {

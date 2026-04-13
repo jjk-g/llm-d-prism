@@ -16,3 +16,18 @@
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  button, a, select, [role="button"] {
+    cursor: pointer !important;
+  }
+  
+  /* Force a consistent hand pointer on all Recharts data dots, scatter nodes, and active legend layers */
+  .recharts-dot, 
+  .recharts-active-dot,
+  .recharts-symbols,
+  .recharts-layer,
+  .recharts-scatter-symbol {
+    cursor: pointer !important;
+  }
+}
