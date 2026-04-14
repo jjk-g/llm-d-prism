@@ -25,7 +25,6 @@ dist-ssr
 *.sln
 *.sw?
 public/results_temp
-package-lock.json
 
 # Large directories
 private

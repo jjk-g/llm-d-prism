@@ -72,6 +72,7 @@ export const useGCS = ({ pendingRequests, addToast }) => {
                         
                         const content = await fileRes.text();
                         let entries = [];
+
                         try {
                             const jsonContent = JSON.parse(content);
                             if (jsonContent.metrics || jsonContent.load_summary) {

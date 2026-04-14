@@ -14,7 +14,8 @@
 
 import express from 'express';
 import compression from 'compression';
-import { GoogleAuth } from 'google-auth-library';
+import { GoogleAuth, UserRefreshClient } from 'google-auth-library';
+import fs from 'fs';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -42,9 +43,7 @@ const limiter = rateLimit({
 app.use('/api', limiter);
 
 // Google Auth Client
-const auth = new GoogleAuth({
-    scopes: 'https://www.googleapis.com/auth/cloud-platform'
-});
+const auth = new GoogleAuth();
 
 // --- API: Shared Configuration ---
 app.get('/api/config', (req, res) => {
@@ -183,7 +182,26 @@ app.get('/api/local/file/:filename', async (req, res) => {
 // Uses server's ADC for authentication.
 app.all('/api/gcs/*', async (req, res) => {
     try {
-        const client = await auth.getClient();
+        let client;
+        const adcPath = process.env.GOOGLE_APPLICATION_DEFAULT_CREDENTIALS;
+        if (adcPath && fs.existsSync(adcPath)) {
+            try {
+                const creds = JSON.parse(fs.readFileSync(adcPath, 'utf8'));
+                if (creds.type === 'authorized_user') {
+                    client = new UserRefreshClient({
+                        clientId: creds.client_id,
+                        clientSecret: creds.client_secret,
+                        refreshToken: creds.refresh_token
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to parse ADC file for explicit auth:', e);
+            }
+        }
+
+        if (!client) {
+            client = await auth.getClient();
+        }
         const token = await client.getAccessToken();
         const accessToken = token.token;
 

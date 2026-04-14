@@ -20,7 +20,7 @@ import {
     BarChart, Bar, ReferenceDot, Label
 } from 'recharts';
 
-import { Activity, Clock, Zap, AlertCircle, ChevronDown, ChevronUp, FileJson, ExternalLink, Cloud, Loader, Filter, X, Plus, RefreshCw, Database, Check, CheckCircle, RotateCcw, Sun, Moon, Eye, EyeOff, Trash2, Edit2, Share2, MessageCircle, Target } from 'lucide-react';
+import { Activity, Clock, Zap, AlertCircle, ChevronDown, ChevronUp, FileJson, ExternalLink, Cloud, Loader, Filter, X, Plus, RefreshCw, Database, Check, CheckCircle, RotateCcw, Sun, Moon, Eye, EyeOff, Trash2, Edit2, Share2, MessageCircle, Target, ArrowLeft } from 'lucide-react';
 import { parseJsonEntry, parseLogFile, parseGiqData, normalizeModelName, normalizeHardware, parseLpgLifecycleMetrics, parseLpgRequestLog } from '../utils/dataParser';
 import { listFolderRecursive, fetchFileContent, parseDriveMetadata, findFolderByName } from '../utils/googleDrive';
 import { defaultState } from '../config/defaultState';
@@ -70,7 +70,70 @@ const getAcceleratorCount = (d) => {
 
 
 
-const Dashboard = () => {
+const MOCK_FALLBACK_DATA_LEGACY = [
+    {
+        run_id: "Run-1",
+        model: "Llama-3-70B",
+        hardware: "NVIDIA H100",
+        accelerator_count: 8,
+        architecture: "Standard TCP",
+        latency: { mean: 15.2, p50: 14.8, p99: 18.5 },
+        ttft: { mean: 120.5, p50: 118.2 },
+        throughput: 2500,
+        source: "local",
+        backend: "vLLM",
+        isl: 512,
+        osl: 128,
+        timestamp: "2026-03-26T10:00:00Z"
+    },
+    {
+        run_id: "Run-2",
+        model: "Llama-3-70B",
+        hardware: "NVIDIA H100",
+        accelerator_count: 8,
+        architecture: "Standard TCP",
+        latency: { mean: 18.5, p50: 17.2, p99: 22.1 },
+        ttft: { mean: 140.1, p50: 135.5 },
+        throughput: 5000,
+        source: "local",
+        backend: "vLLM",
+        isl: 1024,
+        osl: 128,
+        timestamp: "2026-03-26T10:05:00Z"
+    },
+    {
+        run_id: "Run-3",
+        model: "Gemma-2-27B",
+        hardware: "NVIDIA A100",
+        accelerator_count: 4,
+        architecture: "Low Latency",
+        latency: { mean: 12.1, p50: 11.5, p99: 14.2 },
+        ttft: { mean: 80.2, p50: 78.5 },
+        throughput: 8000,
+        source: "local",
+        backend: "vLLM",
+        isl: 512,
+        osl: 256,
+        timestamp: "2026-03-26T10:10:00Z"
+    },
+    {
+        run_id: "Run-4",
+        model: "Gemma-2-27B",
+        hardware: "NVIDIA A100",
+        accelerator_count: 4,
+        architecture: "Low Latency",
+        latency: { mean: 14.2, p50: 13.8, p99: 16.5 },
+        ttft: { mean: 95.5, p50: 92.1 },
+        throughput: 16000,
+        source: "local",
+        backend: "vLLM",
+        isl: 1024,
+        osl: 256,
+        timestamp: "2026-03-26T10:15:00Z"
+    }
+];
+
+const Dashboard = ({ onNavigateBack }) => {
 
     const dashboardState = useDashboardState();
     const {
@@ -102,7 +165,7 @@ const Dashboard = () => {
 
     const dashboardData = useDashboardData(initialState, dashboardState);
     const {
-        data, setData,
+        data: liveData, setData,
         loading, setLoading,
         isRestoringConnections,
         gcsLoading, setGcsLoading,
@@ -143,6 +206,11 @@ const Dashboard = () => {
         awsBucketConfigs, handleAddAWSBucket, removeAWSBucket
     } = dashboardData;
 
+    const data = useMemo(() => {
+        if (!liveData || liveData.length === 0) return MOCK_FALLBACK_DATA_LEGACY.map((d, i) => ({ ...d, id: i }));
+        return liveData;
+    }, [liveData]);
+
     // Shared State Parsing Logic
 
 
@@ -150,6 +218,8 @@ const Dashboard = () => {
     // ... existing state ...
     const [apiError, setApiError] = useState(null);
     const [bypassLoading, setBypassLoading] = useState(false);
+    const [shareToast, setShareToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
     const [hoveredDataPoint, setHoveredDataPoint] = useState(null);
 
     // Helper to generate unique benchmark key
@@ -1145,6 +1215,32 @@ const Dashboard = () => {
     const allModels = [...new Set(filteredBySource.map(d => d.model).filter(m => m !== 'Unknown'))];
     const backends = [...new Set(data.map(d => d.backend).filter(b => b !== 'Unknown'))];
 
+    // Sanitize activeFilters on load to remove stale filters that are not in the dataset
+    useEffect(() => {
+        if (loading || baseData.length === 0) return;
+
+        setActiveFilters(prev => {
+            const next = { ...prev };
+            let changed = false;
+
+            if (prev.models.size > 0 && filterOptions.models.length > 0) {
+                const validModels = new Set();
+                const availableModels = new Set(filterOptions.models);
+                prev.models.forEach(m => {
+                    if (availableModels.has(m)) {
+                        validModels.add(m);
+                    } else {
+                        changed = true;
+                    }
+                });
+                if (changed) {
+                    next.models = validModels;
+                }
+            }
+            return changed ? next : prev;
+        });
+    }, [loading, baseData, filterOptions.models]);
+
 
     // Unified Synchronization & Migration Effect
     // 1. Converts legacy/portable wildcards to concrete keys.
@@ -1632,7 +1728,7 @@ const Dashboard = () => {
 
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-2 transition-colors duration-200">
+        <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans antialiased relative overflow-x-hidden pt-16">
             {/* Toast Stack */}
             <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2">
                 {toasts.map(t => (
@@ -1646,102 +1742,73 @@ const Dashboard = () => {
                     </div>
                 ))}
             </div>
-            <header className="sticky top-0 z-50 mb-2 flex justify-between items-center bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-lg transition-colors">
+            <header className="w-full h-16 border-b border-slate-800 flex justify-between items-center px-6 bg-slate-900 fixed top-0 left-0 right-0 z-[9999]">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-500">
-                        Prism
-                    </h1>
-                    {siteName && (
-                        <span className="ml-2 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-500 border border-slate-200 dark:border-slate-700">
-                            {siteName}
-                        </span>
+                    {onNavigateBack && (
+                        <button onClick={onNavigateBack} className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+                            <ArrowLeft className="h-5 w-5" />
+                        </button>
                     )}
+                    
+                    {/* Compact Prism Logo & Name */}
+                    <div className="flex items-center gap-2.5 border-r border-slate-500 pr-4">
+                        <img src="/favicon.png" alt="Prism Logo" className="h-6 w-6 object-contain drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+                        <span className="text-lg font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600">
+                            Prism
+                        </span>
+                    </div>
+
+                    <div className="flex items-center">
+                        <h1 className="text-lg font-bold text-white tracking-wide">Benchmark browser</h1>
+                        <span className="ml-3 px-2 py-0.5 rounded text-xs font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                            Expert mode
+                        </span>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    {contactUrl && (
-                        <>
-                            <a
-                                href={contactUrl.startsWith('http') ? contactUrl : `mailto:${contactUrl}`}
-                                target={contactUrl.startsWith('http') ? "_blank" : undefined}
-                                rel="noopener noreferrer"
-                                className="p-1.5 rounded transition-colors text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-2"
-                                title={contactUrl}
-                            >
-                                <span className="text-xs font-semibold hidden lg:block">Contact Us</span>
-                                <MessageCircle size={16} />
-                            </a>
-                            <div className="w-px h-4 bg-slate-300 dark:bg-slate-700" />
-                        </>
-                    )}
-                    <button
-                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        className="p-1.5 rounded transition-colors text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700"
-                        title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                    >
-                        {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                    </button>
-                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-700" />
+                <div className="flex items-center space-x-4">
                     <button
                         onClick={() => setShowFilterPanel(!showFilterPanel)}
-                        className={`p-1.5 rounded transition-colors ${showFilterPanel ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'}`}
-                        title="Toggle Filters"
+                        className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors flex items-center ${showFilterPanel ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border-slate-700'}`}
                     >
-                        <Filter size={16} />
+                        <Filter className="w-4 h-4 mr-2" /> {showFilterPanel ? 'Hide filters' : 'Show filters'}
                     </button>
-                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-700" />
+                    
                     <button
                         onClick={() => setShowDataPanel(true)}
-                        className={`p-1.5 rounded transition-colors ${showDataPanel ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800'}`}
-                        title="Data Connections"
+                        className={`px-4 py-2 text-sm font-medium rounded-md border transition-colors flex items-center ${showDataPanel ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'text-slate-300 bg-slate-800 hover:bg-slate-700 border-slate-700'}`}
                     >
-                        <Database size={16} />
+                        <Database className="w-4 h-4 mr-2" /> Connections
                     </button>
-                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-700" />
-                    <button
-                        onClick={() => {
-                            const params = new URLSearchParams();
-                            params.set('share', '1');
-                            params.set('c_mode', chartMode);
-                            params.set('t_type', tputType);
-                            params.set('cost_mode', costMode);
-                            params.set('l_type', latType);
-                            if (xAxisMax !== Infinity) params.set('x_max', xAxisMax);
-                            params.set('per_chip', showPerChip);
-                            params.set('sel_only', showSelectedOnly);
-                            params.set('pareto', showPareto);
-                            params.set('labels', showLabels);
-                            params.set('points', showDataLabels);
 
-                            if (selectedBenchmarks.size > 0) [...selectedBenchmarks].forEach(v => params.append('models', v));
-                            if (activeFilters.models.size > 0) [...activeFilters.models].forEach(v => params.append('f_models', v));
-                            if (activeFilters.hardware.size > 0) [...activeFilters.hardware].forEach(v => params.append('f_hw', v));
-                            if (activeFilters.tp.size > 0) [...activeFilters.tp].forEach(v => params.append('f_tp', v));
-                            if (activeFilters.precisions.size > 0) [...activeFilters.precisions].forEach(v => params.append('f_prec', v));
-                            if (activeFilters.isl.size > 0) [...activeFilters.isl].forEach(v => params.append('f_isl', v));
-                            if (activeFilters.osl.size > 0) [...activeFilters.osl].forEach(v => params.append('f_osl', v));
-                            if (activeFilters.ratio.size > 0) [...activeFilters.ratio].forEach(v => params.append('f_ratio', v));
-                            if (activeFilters.pdRatio && activeFilters.pdRatio.size > 0) [...activeFilters.pdRatio].forEach(v => params.append('f_pd_ratio', v));
-                            if (activeFilters.modelServer.size > 0) [...activeFilters.modelServer].forEach(v => params.append('f_ms', v));
-
-                            [...selectedSources].forEach(v => params.append('src', v));
-
-                            // Configs
-                            bucketConfigs.forEach(b => params.append('buckets', typeof b === 'string' ? b : b.bucket));
-                            apiConfigs.forEach(c => params.append('apis', typeof c === 'string' ? c : c.projectId));
-
-                            const url = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-                            navigator.clipboard.writeText(url);
-                            setGcsSuccess("Link copied to clipboard!");
-                            setTimeout(() => setGcsSuccess(null), 3000);
-                        }}
-                        className={`p-1.5 rounded transition-colors text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-800`}
-                        title="Share View"
+                    <a 
+                        href="https://llm-d.ai/docs/community" 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="px-4 py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700"
                     >
-                        <Share2 size={16} />
+                        <MessageCircle className="w-4 h-4 mr-2" /> Contact us
+                    </a>
+
+                    <button 
+                        onClick={() => { 
+                            setShareToast(true); 
+                            setToastMessage(`Link copied: prism.dev/expert?models=${selectedBenchmarks.size}`); 
+                            setTimeout(() => setShareToast(false), 2000); 
+                        }} 
+                        className="px-4 py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700 relative"
+                    >
+                        <Share2 className="w-4 h-4 mr-2" /> Share view 
+                        {shareToast && (
+                            <div className="absolute -bottom-10 right-0 bg-blue-600 text-white text-xs font-bold px-3 py-1.5 rounded shadow-lg z-50 flex items-center whitespace-nowrap">
+                                {toastMessage}
+                            </div>
+                        )}
                     </button>
                 </div>
             </header>
+
+            <main className="w-full px-8 py-6 pl-28 flex flex-col transition-colors duration-200">
 
             {/* Helper to generate config object */}
             {(() => {
@@ -1923,6 +1990,7 @@ const Dashboard = () => {
                     removeAWSBucket={removeAWSBucket}
                 />
             </div>
+            </main>
         </div>
 
     );
