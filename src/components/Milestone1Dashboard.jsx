@@ -1439,20 +1439,27 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     else if (zoomXAxis === 'tokens_sec') r_xVal = r_outputRate || 1000;
                                     else if (zoomXAxis === 'e2e') r_xVal = r_ttftVal + r_tpotVal * 128;
                                     
-                                    return [
-                                        {
+                                    const hasBaseline = item[`baseline_ttft_${pKey}`] !== undefined;
+                                    const hasRouter = item[`router_ttft_${pKey}`] !== undefined;
+
+                                    const res = [];
+                                    if (hasBaseline) {
+                                        res.push({
                                             ...item,
                                             type: 'baseline',
                                             dynamic_x: parseFloat(b_xVal.toFixed(4)),
                                             dynamic_y: parseFloat(b_yVal.toFixed(4))
-                                        },
-                                        {
+                                        });
+                                    }
+                                    if (hasRouter) {
+                                        res.push({
                                             ...item,
                                             type: 'router',
                                             dynamic_x: parseFloat(r_xVal.toFixed(4)),
                                             dynamic_y: parseFloat(r_yVal.toFixed(4))
-                                        }
-                                    ];
+                                        });
+                                    }
+                                    return res;
                                 })
                                 .filter(d => !isNaN(d.dynamic_x) && !isNaN(d.dynamic_y))
                                 .sort((a, b) => a.dynamic_x - b.dynamic_x);
@@ -1598,6 +1605,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     <div className="flex items-center gap-1.5 border-r border-slate-700/60 pr-3">
                                         <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Group By:</span>
                                         <select value={zoomColorMode} onChange={(e) => setZoomColorMode(e.target.value)} className="bg-slate-900 border border-slate-700 rounded text-[10px] px-2 py-0.5 text-slate-300 outline-none">
+                                            <option value="default">Baseline vs Router</option>
                                             <option value="hardware">Hardware</option>
                                             <option value="node_config">Node Config</option>
                                             <option value="model">Model</option>
@@ -1645,80 +1653,60 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                             </div>
 
                                             <ResponsiveContainer width="100%" height="100%">
-                                                {zoomViewMode === 'standard' && (zoomedChart === 1 || zoomedChart === 2 || zoomedChart === 7 || zoomedChart === 8) ? (
-                                                    <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                                        <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                                            <Label value={zoomedChart === 1 ? "ITL (ms)" : zoomedChart === 2 ? "TTFT (ms)" : "TPOT (ms)"} position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
-                                                        </XAxis>
-                                                        <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
-                                                            <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
-                                                        </YAxis>
-                                                        <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                                        <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                                        
-                                                        {!hiddenSeries.includes(`Router ${selectedPercentile}`) && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? `router_itl_${selectedPercentile.toLowerCase()}` : zoomedChart === 2 ? `router_ttft_${selectedPercentile.toLowerCase()}` : `router_tpot_${selectedPercentile.toLowerCase()}`} name={`Prefix-aware caching ${zoomedChart === 1 ? 'ITL' : zoomedChart === 2 ? 'TTFT' : 'TPOT'} ${selectedPercentile}`} stroke="#38bdf8" strokeWidth={2} />}
-                                                        {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? `baseline_itl_${selectedPercentile.toLowerCase()}` : zoomedChart === 2 ? `baseline_ttft_${selectedPercentile.toLowerCase()}` : `baseline_tpot_${selectedPercentile.toLowerCase()}`} name={`Standard Kubernetes ${zoomedChart === 1 ? 'ITL' : zoomedChart === 2 ? 'TTFT' : 'TPOT'} ${selectedPercentile}`} stroke="#fb923c" strokeWidth={2} />}
-                                                    </LineChart>
-                                                ) : (
-                                                    <LineChart data={visibleZoomData} margin={{ top: 10, right: 20, left: 20, bottom: 45 }}>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                                        <XAxis 
-                                                            type="number"
-                                                            dataKey="dynamic_x" 
-                                                            scale={zoomLogScale ? 'log' : 'auto'} 
-                                                            domain={zoomLogScale ? [1, 'auto'] : ['auto', 'auto']} 
-                                                            stroke="#64748b" 
-                                                            tick={{ fontSize: 12 }}
-                                                        >
-                                                            <Label value={xLabels[zoomXAxis] || 'Queries Per Second'} position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
-                                                        </XAxis>
-                                                        <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                                            <Label value={yLabels[zoomYAxis] || 'Tokens/sec'} angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
-                                                        </YAxis>
-                                                        <Tooltip 
-                                                            cursor={{ strokeDasharray: '3 3' }} 
-                                                            trigger="hover" 
-                                                            isAnimationActive={false}
-                                                            content={<RichSchedulingTooltip />}
-                                                        />
-                                                        <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                                        {(() => {
-                                                            const groups = {};
-                                                            visibleZoomData.forEach(pt => {
-                                                                let key = 'other';
-                                                                const prefix = pt.type === 'baseline' ? 'Baseline' : 'Router';
-                                                                if (zoomColorMode === 'hardware') {
-                                                                    key = `${prefix} - ${pt.hardware || 'H100'}`;
-                                                                } else if (zoomColorMode === 'node_config') {
-                                                                    key = `${prefix} - Nodes: ${pt.num_nodes || 4}`;
-                                                                } else if (zoomColorMode === 'model') {
-                                                                    key = `${prefix} - ${pt.model_name || 'Model'}`;
-                                                                } else {
-                                                                    key = prefix;
-                                                                }
-                                                                if (!groups[key]) groups[key] = [];
-                                                                groups[key].push(pt);
-                                                            });
+                                                <ScatterChart margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                                                    <XAxis 
+                                                        type="number"
+                                                        dataKey="dynamic_x" 
+                                                        scale={zoomLogScale ? 'log' : 'auto'} 
+                                                        domain={zoomLogScale ? [1, 'auto'] : ['auto', 'auto']} 
+                                                        stroke="#64748b" 
+                                                        tick={{ fontSize: 12 }}
+                                                    >
+                                                        <Label value={xLabels[zoomXAxis] || 'Queries Per Second'} position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                                    </XAxis>
+                                                    <YAxis type="number" dataKey="dynamic_y" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                                        <Label value={yLabels[zoomYAxis] || 'Tokens/sec'} angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                                    </YAxis>
+                                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                                    {(() => {
+                                                        const groups = {};
+                                                        visibleZoomData.forEach(pt => {
+                                                            const prefix = pt.type === 'baseline' ? 'Standard Kubernetes' : 'Prefix-aware caching';
+                                                            let key = prefix;
+                                                            if (zoomColorMode === 'default') {
+                                                                key = `${prefix} ${selectedPercentile}`;
+                                                            } else if (zoomColorMode === 'hardware') {
+                                                                key = `${prefix} - ${pt.hardware || 'H100'}`;
+                                                            } else if (zoomColorMode === 'node_config') {
+                                                                key = `${prefix} - Nodes: ${pt.num_nodes || 4}`;
+                                                            } else if (zoomColorMode === 'model') {
+                                                                key = `${prefix} - ${pt.model_name || 'Model'}`;
+                                                            }
+                                                            if (!groups[key]) groups[key] = [];
+                                                            groups[key].push(pt);
+                                                        });
 
-                                                            const colors = ['#38bdf8', '#f472b6', '#34d399', '#fbbf24', '#a78bfa'];
-                                                            
-                                                            return Object.keys(groups).map((k, idx) => (
-                                                                <Line 
+                                                        const defaultColors = ['#38bdf8', '#f472b6', '#34d399', '#fbbf24', '#a78bfa'];
+                                                        
+                                                        return Object.keys(groups).map((k, idx) => {
+                                                            let scatterColor = defaultColors[idx % defaultColors.length];
+                                                            if (zoomColorMode === 'default') {
+                                                                scatterColor = k.includes('Standard Kubernetes') ? '#fb923c' : '#38bdf8';
+                                                            }
+                                                            return (
+                                                                <Scatter 
                                                                     key={k}
+                                                                    name={k}
                                                                     data={groups[k]}
-                                                                    connectNulls={true}
-                                                                    type="monotone" 
-                                                                    dataKey="dynamic_y" 
-                                                                    name={k} 
-                                                                    stroke={colors[idx % colors.length]} 
-                                                                    strokeWidth={2} 
-                                                                    activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2 }}
+                                                                    fill={scatterColor}
+                                                                    line={{ stroke: scatterColor, strokeWidth: 2 }}
                                                                 />
-                                                            ));
-                                                        })()}
-                                                    </LineChart>
-                                                )}
+                                                            );
+                                                        });
+                                                    })()}
+                                                </ScatterChart>
                                             </ResponsiveContainer>
                                     </div>
                                 </div>
