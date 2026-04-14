@@ -229,14 +229,20 @@ export const parseInferenceSchedulingReport = (content, filePath) => {
         const hardware = config.hardware || parts[3] || 'Unknown';
         const machine_type = config.machine_type || 'Unknown';
         const runId = parts[4] || 'Unknown';
+        
+        const prefill_node_count = doc.prefill_node_count || config.prefill_node_count || 0;
+        const decode_node_count = doc.decode_node_count || config.decode_node_count || 0;
+        const num_nodes = prefill_node_count + decode_node_count;
 
         return {
             id: crypto.randomUUID(),
             filePath,
             scenario,
             model,
+            model_name: model,
             hardware,
             machine_type,
+            num_nodes: num_nodes || 4,
             runId,
             qps: throughput.request_rate?.mean || 0,
             output_token_rate: throughput.output_token_rate?.mean || 0,

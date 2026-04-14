@@ -1289,38 +1289,84 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     <div className="bg-slate-900/80 border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col w-full max-w-6xl h-[80vh] overflow-hidden backdrop-blur-sm relative">
                         {(() => {
                             const derivedZoomData = additionalChartData
-                                .map(item => {
+                                .flatMap(item => {
                                     const chipDivisor = zoomPerChip ? 4 : 1;
-                                    let yVal = item.output_token_rate || 0;
-                                    const inTokens = item.input_token_rate || item.qps * 512;
-                                    if (zoomYAxis === 'input') yVal = inTokens;
-                                    else if (zoomYAxis === 'total') yVal = inTokens + (item.output_token_rate || 0);
-                                    else if (zoomYAxis === 'qps') yVal = item.qps;
+                                    
+                                    // Safely parse numeric values
+                                    const parseNum = (val, fallback = 0) => {
+                                        const parsed = parseFloat(val);
+                                        return isNaN(parsed) ? fallback : parsed;
+                                    };
+
+                                    const b_outputRate = parseNum(item.baseline_output_token_rate, 0);
+                                    const r_outputRate = parseNum(item.router_output_token_rate, 0);
+                                    const b_inputRate = parseNum(item.baseline_input_token_rate, parseNum(item.qps, 0) * 512);
+                                    const r_inputRate = parseNum(item.router_input_token_rate, parseNum(item.qps, 0) * 512);
+                                    
+                                    // Baseline object
+                                    let b_yVal = b_outputRate;
+                                    if (zoomYAxis === 'input') b_yVal = b_inputRate;
+                                    else if (zoomYAxis === 'total') b_yVal = b_inputRate + b_outputRate;
+                                    else if (zoomYAxis === 'qps') b_yVal = parseNum(item.qps, 0);
                                     else if (zoomYAxis === 'cost') {
                                         const rates = { spot: 2.89, on_demand: 9.89, cud_1y: 6.54, cud_3y: 4.22 };
-                                        yVal = ((yVal * rates[zoomCostMode]) / 10000);
+                                        b_yVal = ((b_outputRate * rates[zoomCostMode]) / 10000);
                                     }
+                                    
+                                    // Router object
+                                    let r_yVal = r_outputRate;
+                                    if (zoomYAxis === 'input') r_yVal = r_inputRate;
+                                    else if (zoomYAxis === 'total') r_yVal = r_inputRate + r_outputRate;
+                                    else if (zoomYAxis === 'qps') r_yVal = parseNum(item.qps, 0);
+                                    else if (zoomYAxis === 'cost') {
+                                        const rates = { spot: 2.89, on_demand: 9.89, cud_1y: 6.54, cud_3y: 4.22 };
+                                        r_yVal = ((r_outputRate * rates[zoomCostMode]) / 10000);
+                                    }
+                                    
                                     if (zoomYAxis !== 'cost' && zoomPerChip) {
-                                        yVal = yVal / chipDivisor;
+                                        b_yVal = b_yVal / chipDivisor;
+                                        r_yVal = r_yVal / chipDivisor;
                                     }
-                                    let xVal = item.qps;
-                                    const tpotVal = item.router_tpot_p50 || item.baseline_tpot_p50 || 20;
-                                    const ttftVal = item.router_ttft_p50 || item.baseline_ttft_p50 || 250;
-                                    const itlVal = item.router_itl_p50 || item.baseline_itl_p50 || 25;
-                                    if (zoomXAxis === 'tpot') xVal = tpotVal;
-                                    else if (zoomXAxis === 'ntpot') xVal = tpotVal * 0.85;
-                                    else if (zoomXAxis === 'ttft') xVal = ttftVal;
-                                    else if (zoomXAxis === 'itl') xVal = itlVal;
-                                    else if (zoomXAxis === 'tokens_sec') xVal = item.output_token_rate || 1000;
-                                    else if (zoomXAxis === 'e2e') xVal = ttftVal + tpotVal * 128;
-                                    else if (zoomXAxis === 'quality') xVal = 0.98;
-                                    return {
-                                        ...item,
-                                        dynamic_x: parseFloat(xVal.toFixed(4)),
-                                        dynamic_y: parseFloat(yVal.toFixed(4))
-                                    };
+                                    
+                                    const b_tpotVal = parseNum(item.baseline_tpot_p50, 20);
+                                    const r_tpotVal = parseNum(item.router_tpot_p50, 20);
+                                    const b_ttftVal = parseNum(item.baseline_ttft_p50, 250);
+                                    const r_ttftVal = parseNum(item.router_ttft_p50, 250);
+                                    const b_itlVal = parseNum(item.baseline_itl_p50, 25);
+                                    const r_itlVal = parseNum(item.router_itl_p50, 25);
+                                    
+                                    let b_xVal = parseNum(item.qps, 0);
+                                    if (zoomXAxis === 'tpot') b_xVal = b_tpotVal;
+                                    else if (zoomXAxis === 'ntpot') b_xVal = b_tpotVal * 0.85;
+                                    else if (zoomXAxis === 'ttft') b_xVal = b_ttftVal;
+                                    else if (zoomXAxis === 'itl') b_xVal = b_itlVal;
+                                    else if (zoomXAxis === 'tokens_sec') b_xVal = b_outputRate || 1000;
+                                    else if (zoomXAxis === 'e2e') b_xVal = b_ttftVal + b_tpotVal * 128;
+                                    
+                                    let r_xVal = parseNum(item.qps, 0);
+                                    if (zoomXAxis === 'tpot') r_xVal = r_tpotVal;
+                                    else if (zoomXAxis === 'ntpot') r_xVal = r_tpotVal * 0.85;
+                                    else if (zoomXAxis === 'ttft') r_xVal = r_ttftVal;
+                                    else if (zoomXAxis === 'itl') r_xVal = r_itlVal;
+                                    else if (zoomXAxis === 'tokens_sec') r_xVal = r_outputRate || 1000;
+                                    else if (zoomXAxis === 'e2e') r_xVal = r_ttftVal + r_tpotVal * 128;
+                                    
+                                    return [
+                                        {
+                                            ...item,
+                                            type: 'baseline',
+                                            dynamic_x: parseFloat(b_xVal.toFixed(4)),
+                                            dynamic_y: parseFloat(b_yVal.toFixed(4))
+                                        },
+                                        {
+                                            ...item,
+                                            type: 'router',
+                                            dynamic_x: parseFloat(r_xVal.toFixed(4)),
+                                            dynamic_y: parseFloat(r_yVal.toFixed(4))
+                                        }
+                                    ];
                                 })
-                                .filter(d => d.dynamic_x !== null && !isNaN(d.dynamic_x) && d.dynamic_y !== null && !isNaN(d.dynamic_y))
+                                .filter(d => !isNaN(d.dynamic_x) && !isNaN(d.dynamic_y))
                                 .sort((a, b) => a.dynamic_x - b.dynamic_x);
 
                             const dataMax = derivedZoomData.length > 0 ? Math.max(...derivedZoomData.map(d => d.dynamic_x)) : 100;
@@ -1550,17 +1596,18 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                         />
                                                         <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
                                                         {(() => {
-                                                            if (hiddenSeries.includes('Baseline P50')) return null;
-                                                            
                                                             const groups = {};
                                                             visibleZoomData.forEach(pt => {
                                                                 let key = 'other';
+                                                                const prefix = pt.type === 'baseline' ? 'Baseline' : 'Router';
                                                                 if (zoomColorMode === 'hardware') {
-                                                                    key = pt.hardware || 'H100';
+                                                                    key = `${prefix} - ${pt.hardware || 'H100'}`;
                                                                 } else if (zoomColorMode === 'node_config') {
-                                                                    key = `Nodes: ${pt.num_nodes || 4}`;
+                                                                    key = `${prefix} - Nodes: ${pt.num_nodes || 4}`;
                                                                 } else if (zoomColorMode === 'model') {
-                                                                    key = pt.model_name || 'Model';
+                                                                    key = `${prefix} - ${pt.model_name || 'Model'}`;
+                                                                } else {
+                                                                    key = prefix;
                                                                 }
                                                                 if (!groups[key]) groups[key] = [];
                                                                 groups[key].push(pt);
