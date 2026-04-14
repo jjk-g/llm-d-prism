@@ -227,12 +227,12 @@ const PercentileGroupedLegend = ({ payload }) => {
 
     return (
         <div className="w-full flex flex-col items-center justify-center gap-2 border-t border-slate-800/60 pt-2 mt-2 px-4 text-[11px]">
-            {stdItems.length > 0 && (
+            {pacItems.length > 0 && (
                 <div className="flex items-center justify-center gap-4 flex-wrap">
-                    <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Standard Kubernetes:</span>
+                    <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Prefix-aware caching:</span>
                     <div className="flex items-center justify-center gap-3">
-                        {stdItems.map((entry, index) => {
-                            const cleanLabel = entry.value.replace('Standard Kubernetes ', '');
+                        {pacItems.map((entry, index) => {
+                            const cleanLabel = entry.value.replace('Prefix-aware caching ', '');
                             return (
                                 <div key={index} className="flex items-center gap-1 cursor-pointer group" onClick={entry.onClick}>
                                     <div className="w-3 h-0.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
@@ -244,12 +244,12 @@ const PercentileGroupedLegend = ({ payload }) => {
                 </div>
             )}
 
-            {pacItems.length > 0 && (
+            {stdItems.length > 0 && (
                 <div className="flex items-center justify-center gap-4 flex-wrap">
-                    <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Prefix-aware caching:</span>
+                    <span className="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Standard Kubernetes:</span>
                     <div className="flex items-center justify-center gap-3">
-                        {pacItems.map((entry, index) => {
-                            const cleanLabel = entry.value.replace('Prefix-aware caching ', '');
+                        {stdItems.map((entry, index) => {
+                            const cleanLabel = entry.value.replace('Standard Kubernetes ', '');
                             return (
                                 <div key={index} className="flex items-center gap-1 cursor-pointer group" onClick={entry.onClick}>
                                     <div className="w-3 h-0.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
@@ -339,6 +339,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [zoomedChart, setZoomedChart] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'qps', direction: 'asc' });
     const [tableMetricMode, setTableMetricMode] = useState('ttft');
+    const [selectedPercentile, setSelectedPercentile] = useState('P50');
     const [expandedRow, setExpandedRow] = useState(null);
     const [zoomYAxis, setZoomYAxis] = useState('output');
     const [zoomXAxis, setZoomXAxis] = useState('tpot');
@@ -496,6 +497,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
             const qps = rp.qps;
             const ttft99Result = interpolate(qps, baselinePoints, 'baseline_ttft_p99');
             const itl99Result = interpolate(qps, baselinePoints, 'baseline_itl_p99');
+            const ttft90Result = interpolate(qps, baselinePoints, 'baseline_ttft_p90');
+            const itl90Result = interpolate(qps, baselinePoints, 'baseline_itl_p90');
             const ttft50Result = interpolate(qps, baselinePoints, 'baseline_ttft_p50');
             const itl50Result = interpolate(qps, baselinePoints, 'baseline_itl_p50');
             
@@ -503,12 +506,18 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                 qps: Math.round(qps * 10) / 10,
                 router_ttft_p99: rp.router_ttft_p99,
                 router_itl_p99: rp.router_itl_p99,
+                router_ttft_p90: rp.router_ttft_p90,
+                router_itl_p90: rp.router_itl_p90,
                 router_ttft_p50: rp.router_ttft_p50,
                 router_itl_p50: rp.router_itl_p50,
                 baseline_ttft_p99: ttft99Result.value,
                 baseline_ttft_p99_interpolated: ttft99Result.interpolated,
                 baseline_itl_p99: itl99Result.value,
                 baseline_itl_p99_interpolated: itl99Result.interpolated,
+                baseline_ttft_p90: ttft90Result.value,
+                baseline_ttft_p90_interpolated: ttft90Result.interpolated,
+                baseline_itl_p90: itl90Result.value,
+                baseline_itl_p90_interpolated: itl90Result.interpolated,
                 baseline_ttft_p50: ttft50Result.value,
                 baseline_ttft_p50_interpolated: ttft50Result.interpolated,
                 baseline_itl_p50: itl50Result.value,
@@ -831,7 +840,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     {/* Chart 1: TTFT Percentiles vs QPS */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">TTFT Percentiles vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TTFT vs QPS ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(2)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
@@ -848,12 +857,12 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                    {!hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
-                                    {!hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
+                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
+                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -862,7 +871,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     {/* Chart 2: ITL Percentiles vs QPS */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">ITL Percentiles vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">ITL vs QPS ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(1)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
@@ -879,12 +888,12 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                    {!hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
-                                    {!hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
-                                    {!hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
+                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
+                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
+                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -912,8 +921,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_input_token_rate" name="Standard Kubernetes Input Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                     <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_input_token_rate" name="Prefix-aware caching Input Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_input_token_rate" name="Standard Kubernetes Input Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -939,8 +948,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                     <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -968,8 +977,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_total_token_rate" name="Standard Kubernetes Total Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                     <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_total_token_rate" name="Prefix-aware caching Total Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_total_token_rate" name="Standard Kubernetes Total Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -995,8 +1004,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                     <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1007,7 +1016,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     {/* Chart 7: TPOT Percentiles vs QPS */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">TPOT Percentiles vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TPOT vs QPS ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(7)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
@@ -1024,8 +1033,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_tpot_p50" name="Standard Kubernetes TPOT P50" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_tpot_p50" name="Prefix-aware caching TPOT P50" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`router_tpot_${selectedPercentile.toLowerCase()}`} name={`Prefix-aware caching TPOT ${selectedPercentile}`} stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`baseline_tpot_${selectedPercentile.toLowerCase()}`} name={`Standard Kubernetes TPOT ${selectedPercentile}`} stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1034,7 +1043,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     {/* Chart 8: TPOT P99 vs QPS */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">TPOT P99 vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TPOT vs QPS ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(8)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
@@ -1051,8 +1060,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_tpot_p99" name="Standard Kubernetes TPOT P99" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_tpot_p99" name="Prefix-aware caching TPOT P99" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`router_tpot_${selectedPercentile.toLowerCase()}`} name={`Prefix-aware caching TPOT ${selectedPercentile}`} stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`baseline_tpot_${selectedPercentile.toLowerCase()}`} name={`Standard Kubernetes TPOT ${selectedPercentile}`} stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -1072,13 +1081,33 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     onClick={() => setTableMetricMode('ttft')} 
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${tableMetricMode === 'ttft' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
-                                    TTFT (P50 & P99)
+                                    TTFT
                                 </button>
                                 <button 
                                     onClick={() => setTableMetricMode('itl')} 
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${tableMetricMode === 'itl' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
-                                    ITL (P50 & P99)
+                                    ITL
+                                </button>
+                            </div>
+                            <div className="flex gap-2 bg-slate-950 border border-slate-800 p-1 rounded-lg">
+                                <button 
+                                    onClick={() => setSelectedPercentile('P50')} 
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${selectedPercentile === 'P50' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    P50
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedPercentile('P90')} 
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${selectedPercentile === 'P90' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    P90
+                                </button>
+                                <button 
+                                    onClick={() => setSelectedPercentile('P99')} 
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${selectedPercentile === 'P99' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
+                                >
+                                    P99
                                 </button>
                             </div>
                             <button 
@@ -1099,20 +1128,14 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                         </div>
                                     </th>
                                     <th scope="col" className="px-4 py-3 bg-orange-950/20 border-l border-orange-900/30">
-                                        <span className="text-orange-300">Standard K8s (P50)</span>
+                                        <span className="text-orange-300">Standard K8s ({selectedPercentile})</span>
                                     </th>
                                     <th scope="col" className="px-4 py-3 bg-sky-950/20 border-l border-sky-900/30">
-                                        <span className="text-sky-300">Prefix-aware (P50)</span>
+                                        <span className="text-sky-300">Prefix-aware ({selectedPercentile})</span>
                                     </th>
-                                    <th scope="col" className="px-4 py-3 bg-orange-950/20 border-l border-orange-900/30">
-                                        <span className="text-orange-300">Standard K8s (P99)</span>
-                                    </th>
-                                    <th scope="col" className="px-4 py-3 bg-sky-950/20 border-l border-sky-900/30">
-                                        <span className="text-sky-300">Prefix-aware (P99)</span>
-                                    </th>
-                                    <th scope="col" className="px-4 py-3 border-l border-slate-800 text-right cursor-pointer hover:bg-slate-900" onClick={() => setSortConfig(prev => ({ key: 'gain_99', direction: prev.key === 'gain_99' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
+                                    <th scope="col" className="px-4 py-3 border-l border-slate-800 text-right cursor-pointer hover:bg-slate-900" onClick={() => setSortConfig(prev => ({ key: 'gain', direction: prev.key === 'gain' && prev.direction === 'asc' ? 'desc' : 'asc' }))}>
                                         <div className="flex items-center justify-end gap-1 text-emerald-400">
-                                            Overall Gain {sortConfig.key === 'gain_99' && <span className="text-cyan-400">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}
+                                            Overall Gain {sortConfig.key === 'gain' && <span className="text-cyan-400">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>}
                                         </div>
                                     </th>
                                 </tr>
@@ -1120,18 +1143,21 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                             <tbody>
                                 {(() => {
                                     const enhancedData = tableData.map(row => {
-                                        const base50 = tableMetricMode === 'ttft' ? (row.baseline_ttft_p50 || 0) : (row.baseline_itl_p50 || 0);
-                                        const opt50 = tableMetricMode === 'ttft' ? (row.router_ttft_p50 || 0) : (row.router_itl_p50 || 0);
-                                        const base99 = tableMetricMode === 'ttft' ? (row.baseline_ttft_p99 || 0) : (row.baseline_itl_p99 || 0);
-                                        const opt99 = tableMetricMode === 'ttft' ? (row.router_ttft_p99 || 0) : (row.router_itl_p99 || 0);
+                                        const base = tableMetricMode === 'ttft' 
+                                            ? (selectedPercentile === 'P50' ? row.baseline_ttft_p50 : selectedPercentile === 'P90' ? row.baseline_ttft_p90 : row.baseline_ttft_p99)
+                                            : (selectedPercentile === 'P50' ? row.baseline_itl_p50 : selectedPercentile === 'P90' ? row.baseline_itl_p90 : row.baseline_itl_p99);
+                                        
+                                        const opt = tableMetricMode === 'ttft' 
+                                            ? (selectedPercentile === 'P50' ? row.router_ttft_p50 : selectedPercentile === 'P90' ? row.router_ttft_p90 : row.router_ttft_p99)
+                                            : (selectedPercentile === 'P50' ? row.router_itl_p50 : selectedPercentile === 'P90' ? row.router_itl_p90 : row.router_itl_p99);
+                                        
+                                        const gain = base && opt ? ((base - opt) / base) * 100 : 0;
 
                                         return {
                                             ...row,
-                                            val_base50: base50,
-                                            val_opt50: opt50,
-                                            val_base99: base99,
-                                            val_opt99: opt99,
-                                            gain_99: base99 && opt99 ? ((base99 - opt99) / base99) * 100 : 0
+                                            val_base: base || 0,
+                                            val_opt: opt || 0,
+                                            gain: gain
                                         };
                                     });
 
@@ -1145,20 +1171,14 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                         <tr key={idx} className="border-b border-slate-800/60 hover:bg-slate-900/80 transition-colors font-mono">
                                             <td className="px-4 py-4 text-[11px] text-slate-300 font-semibold">{row.qps}</td>
                                             <td className="px-4 py-4 text-[11px] bg-orange-950/10 border-l border-orange-900/20 text-orange-200">
-                                                {row.val_base50 ? `${Math.round(row.val_base50)}ms` : 'N/A'}
+                                                {row.val_base ? `${Math.round(row.val_base)}ms` : 'N/A'}
                                             </td>
                                             <td className="px-4 py-4 text-[11px] bg-sky-950/10 border-l border-sky-900/20 text-sky-200 font-bold">
-                                                {row.val_opt50 ? `${Math.round(row.val_opt50)}ms` : 'N/A'}
-                                            </td>
-                                            <td className="px-4 py-4 text-[11px] bg-orange-950/10 border-l border-orange-900/20 text-orange-200">
-                                                {row.val_base99 ? `${Math.round(row.val_base99)}ms` : 'N/A'}
-                                            </td>
-                                            <td className="px-4 py-4 text-[11px] bg-sky-950/10 border-l border-sky-900/20 text-sky-200 font-bold">
-                                                {row.val_opt99 ? `${Math.round(row.val_opt99)}ms` : 'N/A'}
+                                                {row.val_opt ? `${Math.round(row.val_opt)}ms` : 'N/A'}
                                             </td>
                                             <td className="px-4 py-4 border-l border-slate-800/60 text-right">
-                                                <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full ${row.gain_99 > 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400'}`}>
-                                                    {row.gain_99 > 0 ? `+${Math.round(row.gain_99)}%` : 'N/A'}
+                                                <span className={`px-2.5 py-1 text-[11px] font-semibold rounded-full ${row.gain > 0 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : row.gain < 0 ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-slate-800 text-slate-400'}`}>
+                                                    {row.gain > 0 ? `+${Math.round(row.gain)}%` : row.gain < 0 ? `${Math.round(row.gain)}%` : '0%'}
                                                 </span>
                                             </td>
                                         </tr>
@@ -1578,8 +1598,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                         <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                                         <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
                                                         
-                                                        {!hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? "baseline_itl_p50" : zoomedChart === 2 ? "baseline_ttft_p50" : zoomedChart === 7 ? "baseline_tpot_p50" : "baseline_tpot_p99"} name={zoomedChart === 8 ? "Standard Kubernetes TPOT P99" : "Standard Kubernetes TPOT P50"} stroke="#fb923c" strokeWidth={2} />}
-                                                        {!hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? "router_itl_p50" : zoomedChart === 2 ? "router_ttft_p50" : zoomedChart === 7 ? "router_tpot_p50" : "router_tpot_p99"} name={zoomedChart === 8 ? "Prefix-aware caching TPOT P99" : "Prefix-aware caching TPOT P50"} stroke="#38bdf8" strokeWidth={2} />}
+                                                        {!hiddenSeries.includes(`Router ${selectedPercentile}`) && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? `router_itl_${selectedPercentile.toLowerCase()}` : zoomedChart === 2 ? `router_ttft_${selectedPercentile.toLowerCase()}` : `router_tpot_${selectedPercentile.toLowerCase()}`} name={`Prefix-aware caching ${zoomedChart === 1 ? 'ITL' : zoomedChart === 2 ? 'TTFT' : 'TPOT'} ${selectedPercentile}`} stroke="#38bdf8" strokeWidth={2} />}
+                                                        {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={zoomedChart === 1 ? `baseline_itl_${selectedPercentile.toLowerCase()}` : zoomedChart === 2 ? `baseline_ttft_${selectedPercentile.toLowerCase()}` : `baseline_tpot_${selectedPercentile.toLowerCase()}`} name={`Standard Kubernetes ${zoomedChart === 1 ? 'ITL' : zoomedChart === 2 ? 'TTFT' : 'TPOT'} ${selectedPercentile}`} stroke="#fb923c" strokeWidth={2} />}
                                                     </LineChart>
                                                 ) : (
                                                     <LineChart data={visibleZoomData} margin={{ top: 10, right: 20, left: 20, bottom: 45 }}>
