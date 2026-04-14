@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
     Home, 
     BarChart2, 
-    Cpu, 
+    Route, 
     Compass, 
     Database, 
     Lightbulb, 
     Layers,
     Split,
-    Network,
-    TrendingUp,
+    Brain,
+    DollarSign,
     FileCode
 } from 'lucide-react';
 
@@ -20,21 +20,20 @@ const MENU_GROUPS = [
         ]
     },
     {
-        title: "Well-Lit Analysis Paths",
+        title: "Well-Lit Paths",
         items: [
-            { id: 'inference-scheduling', label: 'Inference Scheduling', icon: Cpu, view: 'inference-scheduling' },
+            { id: 'inference-scheduling', label: 'Inference Scheduling', icon: Route, view: 'inference-scheduling' },
             { id: 'pd-disaggregation', label: 'P/D Disaggregation', icon: Split, view: 'pd-disaggregation', disabled: true },
-            { id: 'wide-ep', label: 'Wide-EP', icon: Network, view: 'wide-ep', disabled: true },
-            { id: 'benchmark-browser', label: 'Benchmark Browser', icon: BarChart2, view: 'advanced' }
+            { id: 'wide-ep', label: 'Wide-EP', icon: Brain, view: 'wide-ep', disabled: true }
         ]
     },
     {
         title: "Utility Suite",
         items: [
-            { id: 'guided-analysis', label: 'Guided Analysis', icon: Compass, view: 'guided-analysis', disabled: true },
-            { id: 'value-analysis', label: 'Value Analysis', icon: TrendingUp, view: 'value-analysis', disabled: true },
-            { id: 'schema-browser', label: 'Schema Browser', icon: FileCode, view: 'schema-browser', disabled: true },
-            { id: 'model-intelligence', label: 'Model Intelligence', icon: Lightbulb, view: 'model-intelligence', disabled: true }
+            { id: 'benchmark-browser', label: 'Benchmark Browser', icon: BarChart2, view: 'advanced' },
+            { id: 'model-intelligence', label: 'Model Intelligence', icon: Lightbulb, view: 'model-intelligence', disabled: true },
+            { id: 'value-analysis', label: 'Value Analysis', icon: DollarSign, view: 'value-analysis', disabled: true },
+            { id: 'schema-browser', label: 'Schema Browser', icon: FileCode, view: 'schema-browser', disabled: true }
         ]
     }
 ];
@@ -49,10 +48,10 @@ export default function LeftNavigation({ currentView, onNavigate }) {
         localStorage.setItem('prism_sidebar_expanded', isExpanded);
     }, [isExpanded]);
 
-    const handleItemClick = (view) => {
+    const handleItemClick = (view, disabled) => {
         if (!isExpanded) {
             setIsExpanded(true);
-        } else {
+        } else if (!disabled) {
             onNavigate(view);
             setIsExpanded(false);
         }
@@ -62,13 +61,13 @@ export default function LeftNavigation({ currentView, onNavigate }) {
         <aside className={`fixed top-20 left-4 h-[calc(100vh-6rem)] flex flex-col border border-slate-800/80 bg-slate-900/80 backdrop-blur-xl rounded-2xl transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'w-80' : 'w-20'}`}>
 
             {/* Navigation Items */}
-            <div className="flex-1 overflow-y-auto overflow-x-visible py-6 flex flex-col gap-8 px-3">
+            <div className="flex-1 overflow-y-auto overflow-x-visible py-6 flex flex-col gap-8 px-3 no-scrollbar">
                 {MENU_GROUPS.map((group, gIdx) => (
                     <div key={gIdx} className="flex flex-col gap-1">
                         {/* Group Header with Stable Vertical Footprint */}
                         {group.title && (
                             <span className="relative text-xs text-slate-500 uppercase tracking-widest px-3 mb-2 font-normal h-4 flex items-center">
-                                {isExpanded ? group.title : <div className="absolute left-[23px] w-[10px] h-[10px] rounded-full bg-slate-500 shrink-0" />}
+                                {isExpanded ? group.title : <div className="absolute left-[10px] w-[36px] h-[1px] bg-slate-700 shrink-0" />}
                             </span>
                         )}
 
@@ -79,7 +78,7 @@ export default function LeftNavigation({ currentView, onNavigate }) {
                             return (
                                 <button
                                     key={item.id}
-                                    onClick={() => !item.disabled && handleItemClick(item.view)}
+                                    onClick={() => handleItemClick(item.view, item.disabled)}
                                     aria-disabled={item.disabled}
                                     title={!isExpanded ? item.label : undefined}
                                     className={`group relative flex items-center gap-4 px-3 py-2.5 rounded-xl transition-all w-full text-left font-normal ${
