@@ -10,16 +10,26 @@ const PrismHome = ({ onNavigate }) => {
 
             <div className="max-w-6xl w-full z-10 flex flex-col items-center">
                 {/* Hero Header */}
-                <header className="mb-20 text-center relative pt-12">
+                <header className="mb-20 text-center relative pt-12 flex flex-col items-center">
                     <div className="flex items-center justify-center mb-2 space-x-3">
-                        <img src="/favicon.png" alt="Prism Logo" className="h-8 w-8 object-contain drop-shadow-[0_0_15px_rgba(34,211,238,0.5)]" />
-                        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-emerald-600">
+                        <a href="https://llm-d.ai" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+                            <img src="https://llm-d.ai/img/llm-d-logotype-and-icon.png" alt="llm-d Logo" className="h-9 object-contain" />
+                        </a>
+                        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
                             Prism
                         </h1>
                     </div>
-                    <p className="text-xl text-slate-400 max-w-3xl leading-relaxed font-light tracking-wide">
+                    <p className="text-xl text-slate-400 max-w-3xl leading-relaxed font-light tracking-wide mb-4">
                         Performance analysis for distributed inference systems.
                     </p>
+                    <a 
+                        href="https://github.com/llm-d/llm-d-prism" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-block opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                        <img src="https://brand.github.com/_next/static/media/logo-03.cc5e5332.png" alt="GitHub" className="h-6 object-contain invert" />
+                    </a>
                 </header>
 
                 {/* Section: Who is it for? (Aligned with SKILL.md) */}
