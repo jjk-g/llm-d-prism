@@ -838,13 +838,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
+                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TTFT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="TTFT (ms)" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
@@ -869,13 +869,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
+                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="ITL (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="ITL (ms)" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
@@ -1014,13 +1014,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TPOT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="TPOT (ms)" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
@@ -1041,13 +1041,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TPOT P99 (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="TPOT P99 (ms)" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
@@ -1567,13 +1567,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
 
                                             <ResponsiveContainer width="100%" height="100%">
                                                 {zoomViewMode === 'standard' && (zoomedChart === 1 || zoomedChart === 2 || zoomedChart === 7 || zoomedChart === 8) ? (
-                                                    <LineChart data={additionalChartData} margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
+                                                    <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 20, left: 20, bottom: 60 }}>
                                                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                                        <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                                            <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                                        <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                                            <Label value={zoomedChart === 1 ? "ITL (ms)" : zoomedChart === 2 ? "TTFT (ms)" : "TPOT (ms)"} position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                                         </XAxis>
-                                                        <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                                            <Label value={zoomedChart === 1 ? "ITL (ms)" : zoomedChart === 2 ? "TTFT (ms)" : "TPOT (ms)"} angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                                        <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
+                                                            <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                                         </YAxis>
                                                         <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                                         <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
