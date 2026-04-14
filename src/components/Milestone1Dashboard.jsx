@@ -494,17 +494,25 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
 
         return routerPoints.map(rp => {
             const qps = rp.qps;
-            const ttftResult = interpolate(qps, baselinePoints, 'baseline_ttft_p99');
-            const itlResult = interpolate(qps, baselinePoints, 'baseline_itl_p99');
+            const ttft99Result = interpolate(qps, baselinePoints, 'baseline_ttft_p99');
+            const itl99Result = interpolate(qps, baselinePoints, 'baseline_itl_p99');
+            const ttft50Result = interpolate(qps, baselinePoints, 'baseline_ttft_p50');
+            const itl50Result = interpolate(qps, baselinePoints, 'baseline_itl_p50');
             
             return {
                 qps: Math.round(qps * 10) / 10,
                 router_ttft_p99: rp.router_ttft_p99,
                 router_itl_p99: rp.router_itl_p99,
-                baseline_ttft_p99: ttftResult.value,
-                baseline_ttft_p99_interpolated: ttftResult.interpolated,
-                baseline_itl_p99: itlResult.value,
-                baseline_itl_p99_interpolated: itlResult.interpolated
+                router_ttft_p50: rp.router_ttft_p50,
+                router_itl_p50: rp.router_itl_p50,
+                baseline_ttft_p99: ttft99Result.value,
+                baseline_ttft_p99_interpolated: ttft99Result.interpolated,
+                baseline_itl_p99: itl99Result.value,
+                baseline_itl_p99_interpolated: itl99Result.interpolated,
+                baseline_ttft_p50: ttft50Result.value,
+                baseline_ttft_p50_interpolated: ttft50Result.interpolated,
+                baseline_itl_p50: itl50Result.value,
+                baseline_itl_p50_interpolated: itl50Result.interpolated
             };
         }).sort((a, b) => a.qps - b.qps);
     }, [gcsData]);
