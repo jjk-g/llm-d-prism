@@ -441,11 +441,12 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
 
     const additionalChartData = React.useMemo(() => {
         return gcsData.map(d => {
-            const baseline_input_token_rate = d.qps * 512;
-            const router_input_token_rate = d.qps * 512;
+            // Only compute input rate if the point belongs to that series
+            const baseline_input_token_rate = d.baseline_ttft_p50 !== undefined ? d.qps * 512 : null;
+            const router_input_token_rate = d.router_ttft_p50 !== undefined ? d.qps * 512 : null;
             
-            const b_out = d.baseline_output_token_rate || 0;
-            const r_out = d.router_output_token_rate || 0;
+            const b_out = d.baseline_output_token_rate ?? null;
+            const r_out = d.router_output_token_rate ?? null;
             
             return {
                 ...d,
@@ -453,8 +454,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                 router_input_token_rate,
                 baseline_output_token_rate: b_out,
                 router_output_token_rate: r_out,
-                baseline_total_token_rate: baseline_input_token_rate + b_out,
-                router_total_token_rate: router_input_token_rate + r_out
+                baseline_total_token_rate: baseline_input_token_rate ? baseline_input_token_rate + (b_out || 0) : null,
+                router_total_token_rate: router_input_token_rate ? router_input_token_rate + (r_out || 0) : null
             };
         }).sort((a, b) => a.qps - b.qps);
     }, [gcsData]);
@@ -903,8 +904,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_input_token_rate" name="Standard Kubernetes Input Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_input_token_rate" name="Prefix-aware caching Input Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_input_token_rate" name="Standard Kubernetes Input Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_input_token_rate" name="Prefix-aware caching Input Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -930,8 +931,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -959,8 +960,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_total_token_rate" name="Standard Kubernetes Total Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_total_token_rate" name="Prefix-aware caching Total Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_total_token_rate" name="Standard Kubernetes Total Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_total_token_rate" name="Prefix-aware caching Total Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
@@ -986,8 +987,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     </YAxis>
                                     <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
                                     <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
+                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
                                 </LineChart>
                             </ResponsiveContainer>
                         </div>
