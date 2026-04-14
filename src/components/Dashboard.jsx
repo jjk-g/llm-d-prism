@@ -234,12 +234,7 @@ const Dashboard = ({ onNavigateBack }) => {
 
     // Persistent State
 
-    const [theme, setTheme] = useState(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('app-theme') || 'dark';
-        }
-        return 'dark';
-    });
+    const [theme, setTheme] = useState('dark');
 
     // Milestone 1: LLM-D Results Store State
 
