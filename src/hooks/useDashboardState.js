@@ -151,6 +151,7 @@ export const useDashboardState = () => {
     ) => {
         const params = new URLSearchParams();
         params.set('share', '1');
+        params.set('view', 'advanced');
         params.set('c_mode', chartMode);
         params.set('t_type', tputType);
         params.set('cost_mode', costMode);

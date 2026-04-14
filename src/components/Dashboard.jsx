@@ -1787,9 +1787,16 @@ const Dashboard = ({ onNavigateBack }) => {
 
                     <button 
                         onClick={() => { 
-                            setShareToast(true); 
-                            setToastMessage(`Link copied: prism.dev/expert?models=${selectedBenchmarks.size}`); 
-                            setTimeout(() => setShareToast(false), 2000); 
+                            const shareUrl = generateShareUrl(bucketConfigs, apiConfigs, selectedSources);
+                            navigator.clipboard.writeText(shareUrl).then(() => {
+                                setShareToast(true); 
+                                setToastMessage('Link copied to clipboard!'); 
+                                setTimeout(() => setShareToast(false), 2000); 
+                            }).catch(err => {
+                                setShareToast(true); 
+                                setToastMessage('Failed to copy link'); 
+                                setTimeout(() => setShareToast(false), 2000); 
+                            });
                         }} 
                         className="px-4 py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700 relative"
                     >

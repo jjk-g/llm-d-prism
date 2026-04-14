@@ -320,7 +320,10 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [targetQps, setTargetQps] = useState(5);
     
     const [provider, setProvider] = useState('GCP');
-    const [hardware, setHardware] = useState('4x H100 80GB');
+    const [hardware, setHardware] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('hw') || '4x H100 80GB';
+    });
     const [showFullProfile, setShowFullProfile] = useState(false);
     const [shareToast, setShareToast] = useState(false);
     const [toastMessage, setToastMessage] = useState("");
@@ -329,7 +332,10 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
     const [alertSaved, setAlertSaved] = useState(false);
 
-    const [latencyScale, setLatencyScale] = useState('linear');
+    const [latencyScale, setLatencyScale] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('scale') || 'linear';
+    });
     const [ttftHistory, setTtftHistory] = useState('snapshot');
     const [itlScale, setItlScale] = useState('linear');
     const [itlHistory, setItlHistory] = useState('snapshot');
@@ -688,7 +694,27 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                     >
                         <MessageCircle className="w-4 h-4 mr-2" /> Contact us
                     </a>
-                    <button onClick={() => { setShareToast(true); setToastMessage(`Link copied: prism.dev/m1?hw=${hardware.split(' ')[0]}&scale=${latencyScale}`); setTimeout(() => setShareToast(false), 2000); }} className="px-4 py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700 relative">
+                    <button 
+                        onClick={() => { 
+                            const params = new URLSearchParams();
+                            params.set('share', '1');
+                            params.set('view', 'inference-scheduling');
+                            params.set('hw', hardware);
+                            params.set('scale', latencyScale);
+                            const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+                            
+                            navigator.clipboard.writeText(shareUrl).then(() => {
+                                setShareToast(true); 
+                                setToastMessage('Link copied to clipboard!'); 
+                                setTimeout(() => setShareToast(false), 2000); 
+                            }).catch(err => {
+                                setShareToast(true); 
+                                setToastMessage('Failed to copy link'); 
+                                setTimeout(() => setShareToast(false), 2000); 
+                            });
+                        }} 
+                        className="px-4 py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700 relative"
+                    >
                         <Share2 className="w-4 h-4 mr-2" /> Share view 
                         {shareToast && (
                             <div className="absolute -bottom-10 right-0 bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded shadow-lg z-50 flex items-center whitespace-nowrap">

@@ -21,7 +21,10 @@ import Milestone1Dashboard from './components/Milestone1Dashboard';
 import LeftNavigation from './components/LeftNavigation';
 
 function App() {
-  const [currentView, setCurrentView] = useState('home'); // 'home' | 'inference-scheduling' | 'advanced'
+  const [currentView, setCurrentView] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view') || 'home';
+  }); // 'home' | 'inference-scheduling' | 'advanced'
 
   const handleNavigate = (view) => {
     setCurrentView(view);
