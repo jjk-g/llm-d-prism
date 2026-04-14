@@ -378,17 +378,17 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
         setZoomPerChip(false);
         setZoomXMax(Infinity);
         setZoomCostMode('spot');
-        setZoomColorMode('hardware');
+        setZoomColorMode('default');
         setZoomViewMode('standard');
         
-        if (id === 1) { setZoomXAxis('itl'); setZoomYAxis('output'); }
-        else if (id === 2) { setZoomXAxis('ttft'); setZoomYAxis('output'); }
-        else if (id === 3) { setZoomXAxis('tokens_sec'); setZoomYAxis('output'); }
-        else if (id === 4) { setZoomXAxis('tokens_sec'); setZoomYAxis('input'); }
-        else if (id === 5) { setZoomXAxis('tokens_sec'); setZoomYAxis('output'); }
-        else if (id === 6) { setZoomXAxis('tokens_sec'); setZoomYAxis('total'); }
-        else if (id === 7) { setZoomXAxis('ttft'); setZoomYAxis('output'); }
-        else if (id === 8) { setZoomXAxis('tpot'); setZoomYAxis('output'); }
+        if (id === 1) { setZoomXAxis('ttft'); setZoomYAxis('output'); }
+        else if (id === 2) { setZoomXAxis('ttft'); setZoomYAxis('input'); }
+        else if (id === 3) { setZoomXAxis('tpot'); setZoomYAxis('output'); }
+        else if (id === 4) { setZoomXAxis('ttft'); setZoomYAxis('total'); }
+        else if (id === 5) { setZoomXAxis('ttft'); setZoomYAxis('qps'); }
+        else if (id === 6) { setZoomXAxis('tpot'); setZoomYAxis('input'); }
+        else if (id === 7) { setZoomXAxis('qps'); setZoomYAxis('input'); }
+        else if (id === 8) { setZoomXAxis('qps'); setZoomYAxis('output'); }
         
         setZoomedChart(id);
     };
@@ -460,6 +460,40 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
             };
         }).sort((a, b) => a.qps - b.qps);
     }, [gcsData]);
+    const scatterData = React.useMemo(() => {
+        const routerPoints = gcsData.filter(d => d.router_ttft_p50 !== undefined);
+        const baselinePoints = gcsData.filter(d => d.baseline_ttft_p50 !== undefined);
+        
+        const pKey = selectedPercentile.toLowerCase();
+        
+        const baseMapped = baselinePoints.map(d => ({
+            qps: d.qps,
+            ttft: d[`baseline_ttft_${pKey}`],
+            tpot: d[`baseline_tpot_${pKey}`],
+            input: d.qps * 512,
+            output: d.baseline_output_token_rate,
+            total: (d.qps * 512) + (d.baseline_output_token_rate || 0)
+        }));
+        
+        const routerMapped = routerPoints.map(d => ({
+            qps: d.qps,
+            ttft: d[`router_ttft_${pKey}`],
+            tpot: d[`router_tpot_${pKey}`],
+            input: d.qps * 512,
+            output: d.router_output_token_rate,
+            total: (d.qps * 512) + (d.router_output_token_rate || 0)
+        }));
+        
+        return {
+            ttft_baseline: [...baseMapped].sort((a, b) => a.ttft - b.ttft),
+            ttft_router: [...routerMapped].sort((a, b) => a.ttft - b.ttft),
+            tpot_baseline: [...baseMapped].sort((a, b) => a.tpot - b.tpot),
+            tpot_router: [...routerMapped].sort((a, b) => a.tpot - b.tpot),
+            qps_baseline: [...baseMapped].sort((a, b) => a.qps - b.qps),
+            qps_router: [...routerMapped].sort((a, b) => a.qps - b.qps)
+        };
+    }, [gcsData, selectedPercentile]);
+
     const tableData = React.useMemo(() => {
         const routerPoints = gcsData.filter(d => d.router_ttft_p50 !== undefined);
         const baselinePoints = gcsData.filter(d => d.baseline_ttft_p50 !== undefined).sort((a, b) => a.qps - b.qps);
@@ -837,232 +871,256 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Row 1: Primary Latency Metrics (TTFT on Left, ITL on Right) */}
                     
-                    {/* Chart 1: TTFT Percentiles vs QPS */}
+                    {/* Chart 1: TTFT vs Input Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">TTFT vs QPS ({selectedPercentile})</h3>
+                            <h3 className="text-sm font-bold text-white">TTFT vs Input Tokens/sec ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(2)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                    <XAxis type="number" dataKey="ttft" name="TTFT" stroke="#64748b" tick={{ fontSize: 12 }}>
                                         <Label value="TTFT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="input" name="Input Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Input Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_ttft_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
-                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_ttft_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
-                                </LineChart>
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name={`Standard Kubernetes ${selectedPercentile}`} data={scatterData.ttft_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name={`Prefix-aware caching ${selectedPercentile}`} data={scatterData.ttft_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* Chart 2: ITL Percentiles vs QPS */}
+                    {/* Chart 2: TTFT vs Output Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">ITL vs QPS ({selectedPercentile})</h3>
+                            <h3 className="text-sm font-bold text-white">TTFT vs Output Tokens/sec ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(1)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="ITL (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="ttft" name="TTFT" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TTFT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="output" name="Output Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Output Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
-                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Baseline P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p50" name="Standard Kubernetes P50" stroke="#fb923c" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Baseline P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p90" name="Standard Kubernetes P90" stroke="#f97316" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Baseline P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="baseline_itl_p99" name="Standard Kubernetes P99" stroke="#ea580c" strokeWidth={2} />}
-                                    {selectedPercentile === 'P50' && !hiddenSeries.includes('Router P50') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p50" name="Prefix-aware caching P50" stroke="#38bdf8" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P90' && !hiddenSeries.includes('Router P90') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p90" name="Prefix-aware caching P90" stroke="#06b6d4" strokeWidth={1.5} />}
-                                    {selectedPercentile === 'P99' && !hiddenSeries.includes('Router P99') && <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey="router_itl_p99" name="Prefix-aware caching P99" stroke="#0891b2" strokeWidth={2} />}
-                                </LineChart>
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name={`Standard Kubernetes ${selectedPercentile}`} data={scatterData.ttft_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name={`Prefix-aware caching ${selectedPercentile}`} data={scatterData.ttft_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
                     {/* Row 2: Token Flow Specifics (Input on Left, Output on Right) */}
                     
-                    {/* Chart 3: Input tokens/sec vs QPS */}
+                    {/* Chart 3: TTFT vs Total Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">Input tokens/sec vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TTFT vs Total Tokens/sec ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(4)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="ttft" name="TTFT" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TTFT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Input Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="total" name="Total Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Total Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_input_token_rate" name="Prefix-aware caching Input Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_input_token_rate" name="Standard Kubernetes Input Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name={`Standard Kubernetes ${selectedPercentile}`} data={scatterData.ttft_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name={`Prefix-aware caching ${selectedPercentile}`} data={scatterData.ttft_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* Chart 4: Output tokens/sec vs QPS */}
+                    {/* Chart 4: TTFT vs QPS */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">Output tokens/sec vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TTFT vs QPS ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(5)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="ttft" name="TTFT" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TTFT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Output Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="qps" name="Queries Per Second" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name={`Standard Kubernetes ${selectedPercentile}`} data={scatterData.ttft_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name={`Prefix-aware caching ${selectedPercentile}`} data={scatterData.ttft_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
                     {/* Row 3: Total Token Flow metrics */}
                     
-                    {/* Chart 5: Total tokens/sec vs QPS */}
+                    {/* Chart 5: TPOT vs Input Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">Total tokens/sec vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TPOT vs Input Tokens/sec ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(6)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="tpot" name="TPOT" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TPOT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Total Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="input" name="Input Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Input Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_total_token_rate" name="Prefix-aware caching Total Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_total_token_rate" name="Standard Kubernetes Total Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name={`Standard Kubernetes ${selectedPercentile}`} data={scatterData.tpot_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name={`Prefix-aware caching ${selectedPercentile}`} data={scatterData.tpot_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* Chart 6: Throughput vs QPS */}
+                    {/* Chart 6: TPOT vs Output Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">Throughput vs QPS</h3>
+                            <h3 className="text-sm font-bold text-white">TPOT vs Output Tokens/sec ({selectedPercentile})</h3>
                             <button onClick={() => openZoom(3)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis dataKey="qps" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="tpot" name="TPOT" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="TPOT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="output" name="Output Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Output Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="router_output_token_rate" name="Prefix-aware caching Output Rate" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} connectNulls={true} type="monotone" dataKey="baseline_output_token_rate" name="Standard Kubernetes Output Rate" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name={`Standard Kubernetes ${selectedPercentile}`} data={scatterData.tpot_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name={`Prefix-aware caching ${selectedPercentile}`} data={scatterData.tpot_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
                     {/* Row 4: TPOT Breakdown */}
                     
-                    {/* Chart 7: TPOT Percentiles vs QPS */}
+                    {/* Chart 7: QPS vs Input Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">TPOT vs QPS ({selectedPercentile})</h3>
+                            <h3 className="text-sm font-bold text-white">QPS vs Input Tokens/sec</h3>
                             <button onClick={() => openZoom(7)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="TPOT (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="qps" name="QPS" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="input" name="Input Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Input Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`router_tpot_${selectedPercentile.toLowerCase()}`} name={`Prefix-aware caching TPOT ${selectedPercentile}`} stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`baseline_tpot_${selectedPercentile.toLowerCase()}`} name={`Standard Kubernetes TPOT ${selectedPercentile}`} stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name="Standard Kubernetes" data={scatterData.qps_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name="Prefix-aware caching" data={scatterData.qps_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
 
-                    {/* Chart 8: TPOT P99 vs QPS */}
+                    {/* Chart 8: QPS vs Output Tokens/sec */}
                     <div className="border border-slate-800 rounded-xl bg-slate-900/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col h-[34rem]">
                         <div className="px-6 py-4 border-b border-slate-800/80 bg-slate-800/20 flex justify-between items-center">
-                            <h3 className="text-sm font-bold text-white">TPOT vs QPS ({selectedPercentile})</h3>
+                            <h3 className="text-sm font-bold text-white">QPS vs Output Tokens/sec</h3>
                             <button onClick={() => openZoom(8)} className="text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-700 p-2 rounded-lg transition-all flex items-center justify-center border border-slate-700/50" title="Expand Chart">
                                 <Maximize2 className="w-4 h-4 text-cyan-400" />
                             </button>
                         </div>
                         <div className="flex-1 p-4">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart layout="vertical" data={additionalChartData} margin={{ top: 10, right: 10, left: 10, bottom: 45 }}>
+                                <ScatterChart margin={{ top: 10, right: 10, left: 10, bottom: 60 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                                    <XAxis type="number" stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="TPOT P99 (ms)" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
+                                    <XAxis type="number" dataKey="qps" name="QPS" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Queries Per Second" position="insideBottom" offset={-20} fill="#94a3b8" fontSize={12} />
                                     </XAxis>
-                                    <YAxis dataKey="qps" type="number" reversed={true} stroke="#64748b" tick={{ fontSize: 12 }}>
-                                        <Label value="Queries Per Second" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
+                                    <YAxis type="number" dataKey="output" name="Output Tokens/sec" stroke="#64748b" tick={{ fontSize: 12 }}>
+                                        <Label value="Output Tokens/sec" angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                     </YAxis>
-                                    <Tooltip isAnimationActive={false} cursor={{ strokeDasharray: '3 3' }} trigger="hover" content={<RichSchedulingTooltip />} />
-                                    <Legend iconType="plainline" verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px', borderTop: '1px solid rgba(30, 41, 59, 0.6)', paddingTop: '8px', paddingLeft: '24px', fontSize: '11px' }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`router_tpot_${selectedPercentile.toLowerCase()}`} name={`Prefix-aware caching TPOT ${selectedPercentile}`} stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} />
-                                    <Line connectNulls={true} activeDot={{ r: 6, stroke: '#ffffff', strokeWidth: 2, style: { cursor: 'pointer' } }} type="monotone" dataKey={`baseline_tpot_${selectedPercentile.toLowerCase()}`} name={`Standard Kubernetes TPOT ${selectedPercentile}`} stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-                                </LineChart>
+                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                    <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
+                                    {!hiddenSeries.includes(`Baseline ${selectedPercentile}`) && (
+                                        <Scatter name="Standard Kubernetes" data={scatterData.qps_baseline} fill="#fb923c" line={{ stroke: '#fb923c', strokeWidth: 2 }} />
+                                    )}
+                                    {!hiddenSeries.includes(`Router ${selectedPercentile}`) && (
+                                        <Scatter name="Prefix-aware caching" data={scatterData.qps_router} fill="#38bdf8" line={{ stroke: '#38bdf8', strokeWidth: 2 }} />
+                                    )}
+                                </ScatterChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
@@ -1357,12 +1415,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                         r_yVal = r_yVal / chipDivisor;
                                     }
                                     
-                                    const b_tpotVal = parseNum(item.baseline_tpot_p50, 20);
-                                    const r_tpotVal = parseNum(item.router_tpot_p50, 20);
-                                    const b_ttftVal = parseNum(item.baseline_ttft_p50, 250);
-                                    const r_ttftVal = parseNum(item.router_ttft_p50, 250);
-                                    const b_itlVal = parseNum(item.baseline_itl_p50, 25);
-                                    const r_itlVal = parseNum(item.router_itl_p50, 25);
+                                    const pKey = selectedPercentile.toLowerCase();
+                                    const b_tpotVal = parseNum(item[`baseline_tpot_${pKey}`], 20);
+                                    const r_tpotVal = parseNum(item[`router_tpot_${pKey}`], 20);
+                                    const b_ttftVal = parseNum(item[`baseline_ttft_${pKey}`], 250);
+                                    const r_ttftVal = parseNum(item[`router_ttft_${pKey}`], 250);
+                                    const b_itlVal = parseNum(item[`baseline_itl_${pKey}`], 25);
+                                    const r_itlVal = parseNum(item[`router_itl_${pKey}`], 25);
                                     
                                     let b_xVal = parseNum(item.qps, 0);
                                     if (zoomXAxis === 'tpot') b_xVal = b_tpotVal;
@@ -1450,14 +1509,14 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/80 flex justify-between items-start gap-6 shadow-sm">
                                         <div className="flex flex-col gap-2.5">
                                             <h3 className="text-lg font-bold text-white">
-                                                {zoomedChart === 1 && "ITL Percentiles vs QPS"}
-                                                {zoomedChart === 2 && "TTFT Percentiles vs QPS"}
-                                                {zoomedChart === 3 && "Throughput vs QPS"}
-                                                {zoomedChart === 4 && "Input tokens/sec vs QPS"}
-                                                {zoomedChart === 5 && "Output tokens/sec vs QPS"}
-                                                {zoomedChart === 6 && "Total tokens/sec vs QPS"}
-                                                {zoomedChart === 7 && "Throughput vs TTFT"}
-                                                {zoomedChart === 8 && "Throughput vs TPOT"}
+                                                {zoomedChart === 1 && `TTFT vs Output Tokens/sec (${selectedPercentile})`}
+                                                {zoomedChart === 2 && `TTFT vs Input Tokens/sec (${selectedPercentile})`}
+                                                {zoomedChart === 3 && `TPOT vs Output Tokens/sec (${selectedPercentile})`}
+                                                {zoomedChart === 4 && `TTFT vs Total Tokens/sec (${selectedPercentile})`}
+                                                {zoomedChart === 5 && `TTFT vs QPS (${selectedPercentile})`}
+                                                {zoomedChart === 6 && `TPOT vs Input Tokens/sec (${selectedPercentile})`}
+                                                {zoomedChart === 7 && "QPS vs Input Tokens/sec"}
+                                                {zoomedChart === 8 && "QPS vs Output Tokens/sec"}
                                             </h3>
                                             
                                             {/* Benchmark Context Parameters */}
