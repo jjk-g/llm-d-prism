@@ -123,8 +123,7 @@ const PrismHome = ({ onNavigate }) => {
 
                         {/* Path 2: P/D Disaggregation */}
                         <div 
-                            onClick={() => onNavigate('pd-disaggregation')}
-                            className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-2xl p-8 hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(139,92,246,0.3)] transition-all duration-500 cursor-pointer flex flex-col h-full overflow-hidden"
+                            className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-2xl p-8 hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(139,92,246,0.3)] transition-all duration-500 cursor-not-allowed flex flex-col h-full overflow-hidden"
                         >
                             <h3 className="text-xl font-bold mb-3 text-white group-hover:text-emerald-400 transition-colors">
                                 P/D disaggregation
@@ -163,8 +162,7 @@ const PrismHome = ({ onNavigate }) => {
 
                         {/* Path 3: Wide-EP */}
                         <div 
-                            onClick={() => onNavigate('wide-ep')}
-                            className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-2xl p-8 hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all duration-500 cursor-pointer flex flex-col h-full overflow-hidden"
+                            className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-2xl p-8 hover:-translate-y-2 hover:shadow-[0_0_30px_rgba(236,72,153,0.3)] transition-all duration-500 cursor-not-allowed flex flex-col h-full overflow-hidden"
                         >
                             <h3 className="text-xl font-bold mb-3 text-white group-hover:text-pink-400 transition-colors">
                                 Wide expert parallelism

@@ -135,21 +135,31 @@ const CustomReferenceLabel = (props) => {
     );
 };
 
-const RichSchedulingTooltip = ({ active, payload }) => {
+const RichSchedulingTooltip = ({ active, payload, zoomXAxis, zoomYAxis }) => {
     if (!active || !payload || !payload.length) return null;
-    const isScatter = payload[0].payload.x !== undefined && payload[0].payload.y !== undefined;
-    const qpsVal = payload[0].payload.qps ?? payload[0].payload.y ?? 'N/A';
+    
+    const pl = payload[0].payload;
+    const hw = pl.hardware || 'H100';
+    const model = pl.model_name || 'Model';
+    const qpsVal = pl.qps ?? pl.y ?? 'N/A';
+    
+    const xLabelMap = { tpot: 'TPOT', ntpot: 'NTPOT', ttft: 'TTFT', itl: 'ITL', tokens_sec: 'Tokens/sec', e2e: 'E2E' };
+    const yLabelMap = { output: 'Out Tok/s', input: 'In Tok/s', total: 'Tot Tok/s', qps: 'QPS', cost: 'Cost' };
+    
+    const xLabel = xLabelMap[zoomXAxis] || 'X';
+    const yLabel = yLabelMap[zoomYAxis] || 'Y';
+
     return (
-        <div className="bg-slate-900/95 border border-slate-700/50 rounded-lg shadow-xl p-3 min-w-[200px] backdrop-blur-md text-slate-100 z-[100]">
+        <div className="bg-slate-900/95 border border-slate-700/50 rounded-lg shadow-xl p-3 min-w-[220px] backdrop-blur-md text-slate-100 z-[100]">
             {/* Unified Shared Context Header */}
             <div className="border-b border-slate-200 dark:border-slate-700/60 pb-1.5 mb-1.5">
                 <div className="text-[11px] font-mono text-slate-400 leading-tight">
-                    4x NVIDIA H100 • Seq: 1024/128
+                    {hw} • {model}
                 </div>
                 <div className="text-xs font-bold text-white mt-1">
                     QPS: {qpsVal}
                 </div>
-                {payload[0].payload.interpolated && (
+                {pl.interpolated && (
                     <div className="text-[10px] text-amber-500 font-mono mt-0.5">
                         (Interpolated Curve)
                     </div>
@@ -186,10 +196,12 @@ const RichSchedulingTooltip = ({ active, payload }) => {
                                     </div>
                                 )}
                                 {items.map((entry, index) => {
-                                    const isScatterLocal = isScatter || (entry.payload.x !== undefined && entry.payload.y !== undefined);
+                                    const epl = entry.payload;
+                                    const xVal = epl.dynamic_x ?? epl.x;
+                                    const yVal = epl.dynamic_y ?? epl.y;
+                                    
                                     let label = entry.name;
                                     if (groupName !== 'Other') {
-                                        // Clean up the repetitive group prefix so only the specific metric/percentile remains
                                         label = label.replace('Standard Kubernetes ', '').replace('Prefix-aware caching ', '').replace('Baseline ', '').replace('Router ', '');
                                     }
 
@@ -200,10 +212,10 @@ const RichSchedulingTooltip = ({ active, payload }) => {
                                                 <span className="text-[11px] text-slate-200 font-medium">{label}</span>
                                             </div>
                                             <span className="text-[11px] font-mono font-bold text-white">
-                                                {isScatterLocal ? (
-                                                    `Latency: ${entry.payload.x}ms`
+                                                {xVal !== undefined && yVal !== undefined ? (
+                                                    `${xLabel}: ${typeof xVal === 'number' ? xVal.toFixed(1) : xVal} | ${yLabel}: ${typeof yVal === 'number' ? yVal.toFixed(1) : yVal}`
                                                 ) : (
-                                                    `${Number(entry.value ?? entry.payload.x).toFixed(1)} ${entry.name.includes('Rate') ? 'tokens/s' : 'ms'}`
+                                                    `${Number(entry.value ?? xVal).toFixed(1)} ${entry.name.includes('Rate') ? 'tokens/s' : 'ms'}`
                                                 )}
                                             </span>
                                         </div>
@@ -356,6 +368,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
     const [zoomXMax, setZoomXMax] = useState(Infinity);
     const [zoomColorMode, setZoomColorMode] = useState('hardware');
     const [zoomViewMode, setZoomViewMode] = useState('standard');
+    const [visiblePercentiles, setVisiblePercentiles] = useState(['p50', 'p90', 'p99']);
 
     const exportToCSV = () => {
         const headers = ['QPS', 'Standard P50 (ms)', 'Prefix-aware P50 (ms)', 'Standard P99 (ms)', 'Prefix-aware P99 (ms)', 'Overall Gain (%)'];
@@ -385,7 +398,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
         setZoomXMax(Infinity);
         setZoomCostMode('spot');
         setZoomColorMode('default');
-        setZoomViewMode('standard');
+        setZoomViewMode('explore');
         
         if (id === 1) { setZoomXAxis('ttft'); setZoomYAxis('output'); }
         else if (id === 2) { setZoomXAxis('ttft'); setZoomYAxis('input'); }
@@ -1441,50 +1454,57 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                         r_yVal = r_yVal / chipDivisor;
                                     }
                                     
-                                    const pKey = selectedPercentile.toLowerCase();
-                                    const b_tpotVal = parseNum(item[`baseline_tpot_${pKey}`], 20);
-                                    const r_tpotVal = parseNum(item[`router_tpot_${pKey}`], 20);
-                                    const b_ttftVal = parseNum(item[`baseline_ttft_${pKey}`], 250);
-                                    const r_ttftVal = parseNum(item[`router_ttft_${pKey}`], 250);
-                                    const b_itlVal = parseNum(item[`baseline_itl_${pKey}`], 25);
-                                    const r_itlVal = parseNum(item[`router_itl_${pKey}`], 25);
-                                    
-                                    let b_xVal = parseNum(item.qps, 0);
-                                    if (zoomXAxis === 'tpot') b_xVal = b_tpotVal;
-                                    else if (zoomXAxis === 'ntpot') b_xVal = b_tpotVal * 0.85;
-                                    else if (zoomXAxis === 'ttft') b_xVal = b_ttftVal;
-                                    else if (zoomXAxis === 'itl') b_xVal = b_itlVal;
-                                    else if (zoomXAxis === 'tokens_sec') b_xVal = b_outputRate || 1000;
-                                    else if (zoomXAxis === 'e2e') b_xVal = b_ttftVal + b_tpotVal * 128;
-                                    
-                                    let r_xVal = parseNum(item.qps, 0);
-                                    if (zoomXAxis === 'tpot') r_xVal = r_tpotVal;
-                                    else if (zoomXAxis === 'ntpot') r_xVal = r_tpotVal * 0.85;
-                                    else if (zoomXAxis === 'ttft') r_xVal = r_ttftVal;
-                                    else if (zoomXAxis === 'itl') r_xVal = r_itlVal;
-                                    else if (zoomXAxis === 'tokens_sec') r_xVal = r_outputRate || 1000;
-                                    else if (zoomXAxis === 'e2e') r_xVal = r_ttftVal + r_tpotVal * 128;
-                                    
-                                    const hasBaseline = item[`baseline_ttft_${pKey}`] !== undefined;
-                                    const hasRouter = item[`router_ttft_${pKey}`] !== undefined;
-
+                                    const isPercentileAxis = ['ttft', 'tpot', 'itl', 'ntpot', 'e2e'].includes(zoomXAxis);
+                                    const percentilesToGenerate = isPercentileAxis ? ['p50', 'p90', 'p99'] : ['p50'];
                                     const res = [];
-                                    if (hasBaseline) {
-                                        res.push({
-                                            ...item,
-                                            type: 'baseline',
-                                            dynamic_x: parseFloat(b_xVal.toFixed(4)),
-                                            dynamic_y: parseFloat(b_yVal.toFixed(4))
-                                        });
-                                    }
-                                    if (hasRouter) {
-                                        res.push({
-                                            ...item,
-                                            type: 'router',
-                                            dynamic_x: parseFloat(r_xVal.toFixed(4)),
-                                            dynamic_y: parseFloat(r_yVal.toFixed(4))
-                                        });
-                                    }
+
+                                    percentilesToGenerate.forEach(pKey => {
+                                        const b_tpotVal = parseNum(item[`baseline_tpot_${pKey}`], 20);
+                                        const r_tpotVal = parseNum(item[`router_tpot_${pKey}`], 20);
+                                        const b_ttftVal = parseNum(item[`baseline_ttft_${pKey}`], 250);
+                                        const r_ttftVal = parseNum(item[`router_ttft_${pKey}`], 250);
+                                        const b_itlVal = parseNum(item[`baseline_itl_${pKey}`], 25);
+                                        const r_itlVal = parseNum(item[`router_itl_${pKey}`], 25);
+                                        
+                                        let b_xVal = parseNum(item.qps, 0);
+                                        if (zoomXAxis === 'tpot') b_xVal = b_tpotVal;
+                                        else if (zoomXAxis === 'ntpot') b_xVal = b_tpotVal * 0.85;
+                                        else if (zoomXAxis === 'ttft') b_xVal = b_ttftVal;
+                                        else if (zoomXAxis === 'itl') b_xVal = b_itlVal;
+                                        else if (zoomXAxis === 'tokens_sec') b_xVal = b_outputRate || 1000;
+                                        else if (zoomXAxis === 'e2e') b_xVal = b_ttftVal + b_tpotVal * 128;
+                                        
+                                        let r_xVal = parseNum(item.qps, 0);
+                                        if (zoomXAxis === 'tpot') r_xVal = r_tpotVal;
+                                        else if (zoomXAxis === 'ntpot') r_xVal = r_tpotVal * 0.85;
+                                        else if (zoomXAxis === 'ttft') r_xVal = r_ttftVal;
+                                        else if (zoomXAxis === 'itl') r_xVal = r_itlVal;
+                                        else if (zoomXAxis === 'tokens_sec') r_xVal = r_outputRate || 1000;
+                                        else if (zoomXAxis === 'e2e') r_xVal = r_ttftVal + r_tpotVal * 128;
+                                        
+                                        const hasBaseline = item[`baseline_ttft_${pKey}`] !== undefined;
+                                        const hasRouter = item[`router_ttft_${pKey}`] !== undefined;
+
+                                        if (hasBaseline) {
+                                            res.push({
+                                                ...item,
+                                                type: 'baseline',
+                                                percentile: pKey,
+                                                dynamic_x: parseFloat(b_xVal.toFixed(4)),
+                                                dynamic_y: parseFloat(b_yVal.toFixed(4))
+                                            });
+                                        }
+                                        if (hasRouter) {
+                                            res.push({
+                                                ...item,
+                                                type: 'router',
+                                                percentile: pKey,
+                                                dynamic_x: parseFloat(r_xVal.toFixed(4)),
+                                                dynamic_y: parseFloat(r_yVal.toFixed(4))
+                                            });
+                                        }
+                                    });
+
                                     return res;
                                 })
                                 .filter(d => !isNaN(d.dynamic_x) && !isNaN(d.dynamic_y))
@@ -1493,7 +1513,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                             const dataMax = derivedZoomData.length > 0 ? Math.max(...derivedZoomData.map(d => d.dynamic_x)) : 100;
                             const step = Math.max(0.01, dataMax / 100);
                             const currentMax = zoomXMax === Infinity ? dataMax : zoomXMax;
-                            const visibleZoomData = derivedZoomData.filter(d => d.dynamic_x <= currentMax);
+                            const isPercentileAxis = ['ttft', 'tpot', 'itl', 'ntpot', 'e2e'].includes(zoomXAxis);
+                            const visibleZoomData = derivedZoomData.filter(d => d.dynamic_x <= currentMax && (!isPercentileAxis || visiblePercentiles.includes(d.percentile)));
 
                             const xLabels = {
                                 tpot: 'TPOT (ms)',
@@ -1542,47 +1563,44 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                     <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/80 flex justify-between items-start gap-6 shadow-sm">
                                         <div className="flex flex-col gap-2.5">
                                             <h3 className="text-lg font-bold text-white">
-                                                {zoomedChart === 1 && `TTFT vs Output Tokens/sec (${selectedPercentile})`}
-                                                {zoomedChart === 2 && `TTFT vs Input Tokens/sec (${selectedPercentile})`}
-                                                {zoomedChart === 3 && `TPOT vs Output Tokens/sec (${selectedPercentile})`}
-                                                {zoomedChart === 4 && `TTFT vs Total Tokens/sec (${selectedPercentile})`}
-                                                {zoomedChart === 5 && `TTFT vs QPS (${selectedPercentile})`}
-                                                {zoomedChart === 6 && `TPOT vs Input Tokens/sec (${selectedPercentile})`}
-                                                {zoomedChart === 7 && "QPS vs Input Tokens/sec"}
-                                                {zoomedChart === 8 && "QPS vs Output Tokens/sec"}
+                                                {`${{
+                                                    'ttft': 'TTFT',
+                                                    'tpot': 'TPOT',
+                                                    'ntpot': 'NTPOT',
+                                                    'itl': 'ITL',
+                                                    'tokens_sec': 'Tokens/sec',
+                                                    'e2e': 'E2E Latency'
+                                                }[zoomXAxis] || zoomXAxis} vs ${{
+                                                    'output': 'Output Tokens/sec',
+                                                    'input': 'Input Tokens/sec',
+                                                    'total': 'Total Tokens/sec',
+                                                    'qps': 'QPS',
+                                                    'cost': 'Cost'
+                                                }[zoomYAxis] || zoomYAxis}`}
                                             </h3>
                                             
                                             {/* Benchmark Context Parameters */}
                                             <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[11px]">
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="text-slate-500 font-semibold">Model:</span>
-                                                    <span className="font-mono font-bold text-slate-200">{reportsMeta?.model || "Gemma-2-27B-IT"}</span>
+                                                    <span className="font-mono font-bold text-slate-200">{reportsMeta?.model || "Unknown"}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="text-slate-500 font-semibold">Serving Engine:</span>
-                                                    <span className="font-mono font-bold text-slate-200">vLLM</span>
+                                                    <span className="font-mono font-bold text-slate-200">{reportsMeta?.serving_engine || "Unknown"}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="text-slate-500 font-semibold">Precision:</span>
-                                                    <span className="font-mono font-bold text-slate-200">BF16</span>
+                                                    <span className="font-mono font-bold text-slate-200">{reportsMeta?.precision || "Unknown"}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <span className="text-slate-500 font-semibold">Hardware:</span>
-                                                    <span className="font-mono font-bold text-slate-200">{hardware || "4x NVIDIA H100"}</span>
+                                                    <span className="font-mono font-bold text-slate-200">{reportsMeta?.hardware || "Unknown"}</span>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <div className="flex items-center gap-4">
-                                            <div className="flex items-center bg-slate-900/80 border border-slate-700/60 p-0.5 rounded-lg shadow-inner">
-                                                <button onClick={() => setZoomViewMode('standard')} className={`px-3 py-1.5 text-[10px] font-semibold rounded-md transition-all cursor-pointer ${zoomViewMode === 'standard' ? 'bg-slate-800 text-white shadow border border-slate-700/80' : 'text-slate-500 hover:text-slate-300'}`}>
-                                                    Original View
-                                                </button>
-                                                <button onClick={() => setZoomViewMode('explore')} className={`px-3 py-1.5 text-[10px] font-semibold rounded-md transition-all cursor-pointer ${zoomViewMode === 'explore' ? 'bg-slate-800 text-white shadow border border-slate-700/80' : 'text-slate-500 hover:text-slate-300'}`}>
-                                                    Advanced View
-                                                </button>
-                                            </div>
-
                                             <button onClick={() => setZoomedChart(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all flex items-center justify-center cursor-pointer" title="Close View">
                                                 <X className="w-4 h-4" />
                                             </button>
@@ -1627,38 +1645,19 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                             </div>
 
                             <div className={`flex flex-col gap-3 md:items-end w-full md:w-auto ${zoomViewMode === 'standard' ? 'hidden' : ''}`}>
-                                <div className="flex flex-wrap items-center gap-3 bg-slate-900/30 border border-slate-700/40 px-3 py-1.5 rounded-lg">
-                                    <div className="flex items-center gap-1.5 border-r border-slate-700/60 pr-3">
-                                        <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Group By:</span>
-                                        <select value={zoomColorMode} onChange={(e) => setZoomColorMode(e.target.value)} className="bg-slate-900 border border-slate-700 rounded text-[10px] px-2 py-0.5 text-slate-300 outline-none">
-                                            <option value="default">Baseline vs Router</option>
-                                            <option value="hardware">Hardware</option>
-                                            <option value="node_config">Node Config</option>
-                                            <option value="model">Model</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-y-2 gap-x-3">
-                                        {Object.keys(groups).map((k) => {
-                                            const palette = hwPalettes[k] || defaultColors;
-                                            return (
-                                                <div key={k} className="flex items-center gap-1.5">
-                                                    <div className="flex rounded overflow-hidden shadow-sm shrink-0">
-                                                        {palette.slice(0, 3).map(c => (
-                                                            <div key={c} className="w-2 h-2" style={{ backgroundColor: c }} />
-                                                        ))}
-                                                    </div>
-                                                    <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-tight max-w-[140px] truncate" title={k}>{k}</span>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
 
-                                <div className="flex flex-wrap items-center gap-4">
+
+                                <div className="flex flex-wrap items-center gap-4 justify-end">
                                     <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-700/50 rounded-lg p-0.5">
                                         <button onClick={() => setZoomLogScale(!zoomLogScale)} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomLogScale ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Log Scale</button>
                                         <div className="h-3 w-px bg-slate-700" />
                                         <button onClick={() => setZoomPerChip(!zoomPerChip)} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${zoomPerChip ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`} title="Normalize per Chip">Per Chip</button>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-700/50 rounded-lg p-0.5">
+                                        <button onClick={() => setVisiblePercentiles(prev => prev.includes('p50') ? prev.filter(x => x !== 'p50') : [...prev, 'p50'])} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${visiblePercentiles.includes('p50') ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>P50</button>
+                                        <button onClick={() => setVisiblePercentiles(prev => prev.includes('p90') ? prev.filter(x => x !== 'p90') : [...prev, 'p90'])} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${visiblePercentiles.includes('p90') ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>P90</button>
+                                        <button onClick={() => setVisiblePercentiles(prev => prev.includes('p99') ? prev.filter(x => x !== 'p99') : [...prev, 'p99'])} className={`px-2.5 py-1 text-[10px] font-medium rounded-md transition-all ${visiblePercentiles.includes('p99') ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>P99</button>
                                     </div>
 
                                     <div className="flex items-center gap-2 bg-slate-900/50 border border-slate-700/50 px-3 py-1 rounded-lg">
@@ -1694,7 +1693,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                     <YAxis type="number" dataKey="dynamic_y" stroke="#64748b" tick={{ fontSize: 12 }}>
                                                         <Label value={yLabels[zoomYAxis] || 'Tokens/sec'} angle={-90} position="insideLeft" offset={-5} fill="#94a3b8" fontSize={12} />
                                                     </YAxis>
-                                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip />} />
+                                                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<RichSchedulingTooltip zoomXAxis={zoomXAxis} zoomYAxis={zoomYAxis} />} />
                                                     <Legend verticalAlign="bottom" wrapperStyle={{ width: '100%', left: '0px', bottom: '0px' }} content={<PercentileGroupedLegend />} />
                                                     {(() => {
                                                         const groups = {};
@@ -1702,7 +1701,8 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                             const prefix = pt.type === 'baseline' ? 'Standard Kubernetes' : 'Prefix-aware caching';
                                                             let key = prefix;
                                                             if (zoomColorMode === 'default') {
-                                                                key = `${prefix} ${selectedPercentile}`;
+                                                                const isPercentileAxis = ['ttft', 'tpot', 'itl', 'ntpot', 'e2e'].includes(zoomXAxis);
+                                                                key = isPercentileAxis ? `${prefix} ${pt.percentile.toUpperCase()}` : prefix;
                                                             } else if (zoomColorMode === 'hardware') {
                                                                 key = `${prefix} - ${pt.hardware || 'H100'}`;
                                                             } else if (zoomColorMode === 'node_config') {
@@ -1721,13 +1721,19 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate }) => {
                                                             if (zoomColorMode === 'default') {
                                                                 scatterColor = k.includes('Standard Kubernetes') ? '#fb923c' : '#38bdf8';
                                                             }
+                                                            
+                                                            let opacity = 1.0;
+                                                            if (k.endsWith('P90')) opacity = 0.6;
+                                                            else if (k.endsWith('P99')) opacity = 0.3;
+
                                                             return (
                                                                 <Scatter 
                                                                     key={k}
                                                                     name={k}
                                                                     data={groups[k]}
                                                                     fill={scatterColor}
-                                                                    line={{ stroke: scatterColor, strokeWidth: 2 }}
+                                                                    line={{ stroke: scatterColor, strokeWidth: 2, strokeOpacity: opacity }}
+                                                                    fillOpacity={opacity}
                                                                 />
                                                             );
                                                         });

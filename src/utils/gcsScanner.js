@@ -230,6 +230,21 @@ export const parseInferenceSchedulingReport = (content, filePath) => {
         const machine_type = config.machine_type || 'Unknown';
         const runId = parts[4] || 'Unknown';
         
+        const rawNameLower = filePath.toLowerCase();
+        let precision = config.precision || 'Unknown';
+        if (precision === 'Unknown') {
+            if (rawNameLower.includes('fp8')) precision = 'FP8';
+            else if (rawNameLower.includes('fp16')) precision = 'FP16';
+            else if (rawNameLower.includes('bf16')) precision = 'BF16';
+        }
+
+        let serving_engine = config.serving_engine || config.backend || 'Unknown';
+        if (serving_engine === 'Unknown') {
+            if (rawNameLower.includes('vllm')) serving_engine = 'vLLM';
+            else if (rawNameLower.includes('tgi')) serving_engine = 'TGI';
+            else if (rawNameLower.includes('tensorrt')) serving_engine = 'TensorRT-LLM';
+        }
+
         const prefill_node_count = doc.prefill_node_count || config.prefill_node_count || 0;
         const decode_node_count = doc.decode_node_count || config.decode_node_count || 0;
         const num_nodes = prefill_node_count + decode_node_count;
@@ -242,6 +257,8 @@ export const parseInferenceSchedulingReport = (content, filePath) => {
             model_name: model,
             hardware,
             machine_type,
+            precision,
+            serving_engine,
             num_nodes: num_nodes || 4,
             runId,
             qps: throughput.request_rate?.mean || 0,
