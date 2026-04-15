@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/add-github-action-deploy # temporary: remove before merging
   workflow_dispatch: # Allow manual triggers
 
 permissions:
