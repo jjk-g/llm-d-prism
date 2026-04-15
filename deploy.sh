@@ -93,9 +93,13 @@ IMAGE_NAME="gcr.io/$PROJECT_ID/$SERVICE_NAME"
 
 echo "Deploying to Project: $PROJECT_ID with Name: '$SITE_NAME' and GA: '$GA_TRACKING_ID'"
 
-# Enable required APIs
-echo "Enabling required APIs..."
-gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com run.googleapis.com --project $PROJECT_ID
+# Enable required APIs (skipped in CI; enable manually or grant the SA serviceusage.serviceUsageAdmin)
+if [ "${CI}" != "true" ]; then
+  echo "Enabling required APIs..."
+  gcloud services enable cloudbuild.googleapis.com containerregistry.googleapis.com run.googleapis.com --project $PROJECT_ID
+else
+  echo "Skipping API enablement in CI environment"
+fi
 
 # Deploy to Cloud Run from source
 echo "Deploying to Cloud Run from source..."
