@@ -25,7 +25,9 @@ help: ## Show this help message
 
 .PHONY: build
 build: ## Build the Go binary
-	@if find . -name "*.go" -not -path "./.git/*" | head -1 | grep -q .; then \
+	@if [ -d "./cmd" ] && find ./cmd -name "*.go" | head -1 | grep -q .; then \
+		go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o bin/$(PROJECT_NAME) ./cmd/; \
+	elif find . -maxdepth 1 -name "*.go" | head -1 | grep -q .; then \
 		go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o bin/$(PROJECT_NAME) .; \
 	else \
 		echo "No Go files found, skipping build"; \
