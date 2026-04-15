@@ -10,65 +10,23 @@ const PrismHome = ({ onNavigate }) => {
 
             <div className="max-w-6xl w-full z-10 flex flex-col items-center">
                 {/* Hero Header */}
-                <header className="mb-20 text-center relative pt-12 flex flex-col items-center">
+                <header className="mb-10 text-center relative pt-6 flex flex-col items-center">
                     <div className="flex items-center justify-center mb-2 space-x-3">
                         <a href="https://llm-d.ai" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
                             <img src="https://llm-d.ai/img/llm-d-logotype-and-icon.png" alt="llm-d Logo" className="h-9 object-contain" />
                         </a>
-                        <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
-                            Prism
-                        </h1>
+                        <a href="https://github.com/llm-d/llm-d-prism" target="_blank" rel="noopener noreferrer" className="hover:opacity-80 transition-opacity">
+                            <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
+                                Prism
+                            </h1>
+                        </a>
                     </div>
                     <p className="text-xl text-slate-400 max-w-3xl leading-relaxed font-light tracking-wide mb-4">
                         Performance analysis for distributed inference systems.
                     </p>
-                    <a 
-                        href="https://github.com/llm-d/llm-d-prism" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-block opacity-70 hover:opacity-100 transition-opacity"
-                    >
-                        <img src="https://brand.github.com/_next/static/media/logo-03.cc5e5332.png" alt="GitHub" className="h-6 object-contain invert" />
-                    </a>
                 </header>
 
-                {/* Section: Who is it for? (Aligned with SKILL.md) */}
-                <section className="mb-20 w-full max-w-4xl">
-                     <h2 className="text-2xl font-bold mb-2 text-center text-slate-100">
-                          Who is it for?
-                     </h2>
-                     <p className="text-sm text-slate-500 text-center mb-8">Discover how different roles find value in Prism's performance tracking.</p>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                         <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
-                             <div className="flex items-center mb-4">
-                                 <TrendingUp className="h-6 w-6 text-blue-500 mr-2" />
-                                 <h3 className="text-xl font-semibold text-slate-100">Feature developers</h3>
-                             </div>
-                             <p className="text-sm text-slate-400 mb-6 flex-1">
-                                Validate model performance deltas and share reproducible recipes.
-                             </p>
-                             <ul className="text-sm space-y-3 text-slate-300">
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Automate pricing vs. performance goals</li>
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Distinct unit vs. system benchmark suites</li>
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reproducible shareable benchmark run sets</li>
-                             </ul>
-                         </div>
-                         <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
-                             <div className="flex items-center mb-4">
-                                 <Server className="h-6 w-6 text-blue-500 mr-2" />
-                                 <h3 className="text-xl font-semibold text-slate-100">Stack operators</h3>
-                             </div>
-                             <p className="text-sm text-slate-400 mb-6 flex-1">
-                                Priorities production stability, regression tracking, and well-lit infra runs.
-                             </p>
-                             <ul className="text-sm space-y-3 text-slate-300">
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Compare deployments vs. historical baselines</li>
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Execute regular stress telemetry tests</li>
-                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reduce wasted GPU spend footprints</li>
-                             </ul>
-                         </div>
-                     </div>
-                </section>
+
 
                 {/* Section: Well-lit paths (UX Clarity) */}
                 <section className="mb-20 w-full">
@@ -204,6 +162,44 @@ const PrismHome = ({ onNavigate }) => {
                             </button>
                         </div>
                     </div>
+                </section>
+
+                {/* Section: Who is it for? (Aligned with SKILL.md) */}
+                <section className="mb-20 w-full max-w-4xl">
+                     <h2 className="text-2xl font-bold mb-2 text-center text-slate-100">
+                          Who is it for?
+                     </h2>
+                     <p className="text-sm text-slate-500 text-center mb-8">Discover how different roles find value in Prism's performance tracking.</p>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
+                             <div className="flex items-center mb-4">
+                                 <TrendingUp className="h-6 w-6 text-blue-500 mr-2" />
+                                 <h3 className="text-xl font-semibold text-slate-100">Feature developers</h3>
+                             </div>
+                             <p className="text-sm text-slate-400 mb-6 flex-1">
+                                Validate model performance deltas and share reproducible recipes.
+                             </p>
+                             <ul className="text-sm space-y-3 text-slate-300">
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Automate pricing vs. performance goals</li>
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Distinct unit vs. system benchmark suites</li>
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reproducible shareable benchmark run sets</li>
+                             </ul>
+                         </div>
+                         <div className="bg-slate-900 shadow-xl border border-slate-800 rounded-xl p-8 hover:shadow-2xl transition-all cursor-default h-full flex flex-col">
+                             <div className="flex items-center mb-4">
+                                 <Server className="h-6 w-6 text-blue-500 mr-2" />
+                                 <h3 className="text-xl font-semibold text-slate-100">Stack operators</h3>
+                             </div>
+                             <p className="text-sm text-slate-400 mb-6 flex-1">
+                                Priorities production stability, regression tracking, and well-lit infra runs.
+                             </p>
+                             <ul className="text-sm space-y-3 text-slate-300">
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Compare deployments vs. historical baselines</li>
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Execute regular stress telemetry tests</li>
+                                <li className="flex items-start"><CheckCircle className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" /> Reduce wasted GPU spend footprints</li>
+                             </ul>
+                         </div>
+                     </div>
                 </section>
 
                 {/* Section: How it works */}
