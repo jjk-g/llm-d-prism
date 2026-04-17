@@ -24,7 +24,8 @@ const MENU_GROUPS = [
         items: [
             { id: 'inference-scheduling', label: 'Inference Scheduling', icon: Route, view: 'inference-scheduling' },
             { id: 'pd-disaggregation', label: 'P/D Disaggregation', icon: Split, view: 'pd-disaggregation', disabled: true },
-            { id: 'wide-ep', label: 'Wide-EP', icon: Brain, view: 'wide-ep', disabled: true }
+            { id: 'wide-ep', label: 'Wide-EP', icon: Brain, view: 'wide-ep', disabled: true },
+            { id: 'prefix-cache-offloading', label: 'Prefix Cache Offloading', icon: Database, view: 'prefix-cache-offloading', disabled: true }
         ]
     },
     {
@@ -38,10 +39,10 @@ const MENU_GROUPS = [
     }
 ];
 
-export default function LeftNavigation({ currentView, onNavigate }) {
+export default function LeftNavigation({ currentView, onNavigate, isMobileOpen }) {
     const [isExpanded, setIsExpanded] = useState(() => {
         const saved = localStorage.getItem('prism_sidebar_expanded');
-        return saved !== null ? saved === 'true' : true;
+        return saved !== null ? saved === 'true' : false;
     });
 
     useEffect(() => {
@@ -58,7 +59,7 @@ export default function LeftNavigation({ currentView, onNavigate }) {
     };
 
     return (
-        <aside className={`fixed top-20 left-4 h-[calc(100vh-6rem)] flex flex-col border border-slate-800/80 bg-slate-900/80 backdrop-blur-xl rounded-2xl transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'w-80' : 'w-20'}`}>
+        <aside className={`fixed top-20 left-4 h-[calc(100vh-6rem)] ${isMobileOpen ? 'flex' : 'hidden md:flex'} flex-col border border-slate-800/80 bg-slate-900/80 backdrop-blur-xl rounded-2xl transition-all duration-300 z-50 shadow-2xl ${isExpanded ? 'w-80' : 'w-20'}`}>
 
             {/* Navigation Items */}
             <div className="flex-1 overflow-y-auto overflow-x-visible py-6 flex flex-col gap-8 px-3 no-scrollbar">
